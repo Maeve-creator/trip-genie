@@ -244,7 +244,7 @@ input,textarea,select{font-family:inherit}
     <button class="theme-btn" data-t="city"><span class="dot"></span>城市</button>
   </div>
   <div class="user-chip" id="userChip" hidden>
-    <button class="btn sm" id="adminBtn" onclick="openAdmin()" hidden>👥 管理權限</button>
+    <button class="btn sm" id="adminBtn" onclick="openAdmin()" hidden>👥 App 成員</button>
     <span class="uemail" id="uEmail" title=""></span>
     <button class="btn ghost sm" onclick="doSignOut()">登出</button>
   </div>
@@ -274,6 +274,7 @@ input,textarea,select{font-family:inherit}
       <button class="mode-btn active" data-m="edit" onclick="setMode('edit')">編輯</button>
       <button class="mode-btn" data-m="view" onclick="setMode('view')">閱覽</button>
     </div>
+    <button class="btn" id="shareBtn" onclick="openShare()" hidden>🔗 分享</button>
     <button class="btn" onclick="saveNow()">💾 儲存行程</button>
     <div class="dropdown" id="exportDD">
       <button class="btn" onclick="toggleExport(event)">⬇ 匯出行程表 ▾</button>
@@ -318,7 +319,9 @@ let state=emptyState();
 let cur={tripId:null, tab:'sched', mode:'edit'};
 let cloud=false, db=null, auth=null, currentUser=null, isAdmin=false;
 const CLIENT_ID=Math.random().toString(36).slice(2)+Date.now().toString(36);
-let wsRef=null, unsub=null, applyingRemote=false, appStarted=false, saveTimer=null, pendingRemote=null;
+let applyingRemote=false, appStarted=false;
+let unsubOwner=null, unsubMember=null, tripsOwner={}, tripsMember={};
+const saveTimers={};
 
 function emptyState(){return {theme:'forest', trips:[], items:{}, checklist:{}};}
 function normalizeState(){
@@ -333,13 +336,31 @@ function loadLocal(){
 function saveLocal(){ try{localStorage.setItem(LS_KEY,JSON.stringify(state));}catch(e){console.warn(e);} }
 function save(){
   if(applyingRemote) return;
-  if(cloud){ clearTimeout(saveTimer); saveTimer=setTimeout(cloudSave,400); }
-  else saveLocal();
+  if(cur.tripId) scheduleTrip(cur.tripId);   // 只存目前開啟的那趟
+  else if(!cloud) saveLocal();               // 首頁層在雲端由各 CRUD 直接寫；本機模式存 blob
 }
-function cloudSave(){
-  if(!wsRef) return;
-  wsRef.set({state:JSON.parse(JSON.stringify(state)), writer:CLIENT_ID, updatedAt:firebase.firestore.FieldValue.serverTimestamp(), updatedBy:currentUser?currentUser.email:''})
-    .catch(e=>toast('雲端儲存失敗：'+(e.code||e.message)));
+function scheduleTrip(id){
+  if(!cloud){ saveLocal(); return; }
+  clearTimeout(saveTimers[id]); saveTimers[id]=setTimeout(()=>{ delete saveTimers[id]; persistTrip(id); },400);
+}
+function tripDoc(t){
+  return {
+    name:t.name, startDate:t.startDate, endDate:t.endDate, theme:t.theme||'forest',
+    emoji:t.emoji||'🗺️', order:t.order||0,
+    owner:t.owner||(currentUser?currentUser.email:''), members:t.members||[],
+    items:state.items[t.id]||[], checklist:state.checklist[t.id]||blankChecklist(),
+    writer:CLIENT_ID, updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
+    updatedBy:currentUser?currentUser.email:''
+  };
+}
+function persistTrip(id){
+  if(!cloud){ saveLocal(); return; }
+  const t=state.trips.find(x=>x.id===id); if(!t) return;
+  db.collection('trips').doc(id).set(tripDoc(t)).catch(e=>toast('儲存失敗：'+(e.code||e.message)));
+}
+function deleteTripDoc(id){
+  if(!cloud){ saveLocal(); return; }
+  db.collection('trips').doc(id).delete().catch(e=>toast('刪除失敗：'+(e.code||e.message)));
 }
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
 
@@ -411,18 +432,21 @@ function saveTrip(id){
   if(s>e){toast('迄日不可早於起日');return;}
   if(id){
     const t=state.trips.find(x=>x.id===id); Object.assign(t,{name,startDate:s,endDate:e});
+    if(cloud) persistTrip(id); else save();
   }else{
     const nid=uid();
-    state.trips.push({id:nid,name,startDate:s,endDate:e,theme:state.theme,emoji:COVER_EMOJI[state.trips.length%COVER_EMOJI.length]});
+    state.trips.push({id:nid,name,startDate:s,endDate:e,theme:state.theme,emoji:COVER_EMOJI[state.trips.length%COVER_EMOJI.length],owner:(currentUser?currentUser.email:''),members:[]});
     state.items[nid]=[]; state.checklist[nid]=blankChecklist();
+    if(cloud) persistTrip(nid); else save();
   }
-  save(); closeModal(); renderHome(); toast(id?'已更新':'行程已建立');
+  closeModal(); renderHome(); toast(id?'已更新':'行程已建立');
 }
 function deleteTrip(id){
   const t=state.trips.find(x=>x.id===id);
   confirmModal(`刪除「${esc(t.name)}」？`,'此行程的所有日程與 Checklist 會一併刪除，無法復原。',()=>{
     state.trips=state.trips.filter(x=>x.id!==id); delete state.items[id]; delete state.checklist[id];
-    save(); renderHome(); toast('已刪除');
+    if(cloud) deleteTripDoc(id); else save();
+    renderHome(); toast('已刪除');
   });
 }
 function blankChecklist(){const o={};CHK_CATS.forEach(c=>o[c]=[]);return o;}
@@ -438,6 +462,8 @@ function openTrip(id){
   document.getElementById('tripView').hidden=false;
   document.getElementById('tripName').textContent=t.name;
   document.getElementById('tripDate').textContent=`${fmtRange(t.startDate,t.endDate)} · ${dayCount(t.startDate,t.endDate)} 天`;
+  const owner=(cloud && currentUser && t.owner===currentUser.email);
+  document.getElementById('shareBtn').hidden=!owner;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='sched'));
   document.getElementById('schedPane').hidden=false; document.getElementById('chkPane').hidden=true;
   setMode('edit');
@@ -689,10 +715,7 @@ function delChk(cat,i){ const cl=ensureCL(); cl[cat].splice(i,1); save(); render
 
 /* ================= Modal / Toast 基礎 ================= */
 function openModal(html){document.getElementById('modal').innerHTML=html;document.getElementById('overlay').classList.add('show');}
-function closeModal(){
-  document.getElementById('overlay').classList.remove('show');
-  if(pendingRemote){ applyingRemote=true; state=pendingRemote; normalizeState(); pendingRemote=null; rerenderCurrent(); applyingRemote=false; }
-}
+function closeModal(){ document.getElementById('overlay').classList.remove('show'); }
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeModal();});
 function confirmModal(title,msg,onYes){
   openModal(`<div class="modal-head"><h2>${title}</h2><button class="close" onclick="closeModal()">×</button></div>
@@ -704,14 +727,8 @@ function confirmModal(title,msg,onYes){
 let toastT;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),1800);}
 function saveNow(){
-  if(cloud){ cloudSave(); saveVersion(); toast('☁ 已儲存並同步到雲端'); }
+  if(cloud){ if(cur.tripId) persistTrip(cur.tripId); toast('☁ 已儲存並同步到雲端'); }
   else { saveLocal(); toast('✓ 已儲存到本機'); }
-}
-function saveVersion(){
-  if(!db||!currentUser) return;
-  db.collection('workspace').doc('data').collection('versions').add({
-    state:JSON.parse(JSON.stringify(state)), savedAt:firebase.firestore.FieldValue.serverTimestamp(), savedBy:currentUser.email
-  }).catch(()=>{});
 }
 function toggleExport(e){e.stopPropagation();document.getElementById('exportDD').classList.toggle('open');}
 document.addEventListener('click',()=>document.getElementById('exportDD')?.classList.remove('open'));
@@ -769,22 +786,32 @@ async function onAuth(user){
   hideGate(); startCloud();
 }
 function startCloud(){
-  wsRef=db.collection('workspace').doc('data');
-  if(unsub) unsub();
-  unsub=wsRef.onSnapshot(snap=>{
-    if(!snap.exists){
-      const local=loadLocal();
-      state=(local.trips&&local.trips.length)?local:emptyState();
-      normalizeState(); cloudSave(); if(!appStarted) bootUI(); return;
-    }
-    const data=snap.data()||{};
-    if(data.writer===CLIENT_ID){ if(!appStarted) bootUI(); return; }             // 自己這台寫的，略過（避免重繪迴圈）
-    if(document.getElementById('overlay').classList.contains('show')){ pendingRemote=data.state||emptyState(); if(!appStarted) bootUI(); return; } // 編輯中先擱置
-    applyingRemote=true;
-    state=data.state||emptyState(); normalizeState();
-    if(!appStarted) bootUI(); else rerenderCurrent();
-    applyingRemote=false;
-  }, err=>toast('雲端連線失敗：'+(err.code||err.message)));
+  const em=currentUser.email;
+  if(unsubOwner) unsubOwner(); if(unsubMember) unsubMember();
+  const onErr=e=>toast('雲端連線失敗：'+(e.code||e.message));
+  // 我擁有的行程
+  unsubOwner=db.collection('trips').where('owner','==',em)
+    .onSnapshot(s=>{ tripsOwner={}; s.forEach(d=>tripsOwner[d.id]=d.data()); mergeTrips(allOwn(s)); }, onErr);
+  // 別人分享給我的行程
+  unsubMember=db.collection('trips').where('members','array-contains',em)
+    .onSnapshot(s=>{ tripsMember={}; s.forEach(d=>tripsMember[d.id]=d.data()); mergeTrips(allOwn(s)); }, onErr);
+}
+function allOwn(snap){ const ch=snap.docChanges(); return ch.length>0 && ch.every(c=>c.doc.data().writer===CLIENT_ID); }
+function mergeTrips(ownOnly){
+  const byId=Object.assign({}, tripsMember, tripsOwner);   // owner 版本優先
+  const openId=cur.tripId;
+  const keepOpen = openId && (saveTimers[openId] || document.getElementById('overlay').classList.contains('show'));
+  const trips=[], items={}, chk={};
+  Object.keys(byId).forEach(id=>{
+    const d=byId[id];
+    trips.push({id, name:d.name, startDate:d.startDate, endDate:d.endDate, theme:d.theme, emoji:d.emoji, order:d.order||0, owner:d.owner, members:d.members||[]});
+    if(id===openId && keepOpen){ items[id]=state.items[id]||d.items||[]; chk[id]=state.checklist[id]||d.checklist||blankChecklist(); }
+    else { items[id]=d.items||[]; chk[id]=d.checklist||blankChecklist(); }
+  });
+  trips.sort((a,b)=>((a.order||0)-(b.order||0))||((a.name||'')>(b.name||'')?1:-1));
+  applyingRemote=true; state.trips=trips; state.items=items; state.checklist=chk; applyingRemote=false;
+  if(!appStarted) bootUI();
+  else if(!ownOnly) rerenderCurrent();   // 只有別人改動才重繪，自己寫的不重繪（避免跳動）
 }
 function bootUI(){ appStarted=true; normalizeState(); applyTheme(state.theme||'forest'); if(cur.tripId) rerenderCurrent(); else renderHome(); }
 function rerenderCurrent(){
@@ -807,13 +834,13 @@ async function openAdmin(){
   const rows=list.length?list.map(e=>`<div class="al-row"><span>${esc(e)}</span><button class="btn danger sm" onclick="removeAllow('${esc(e)}')">移除</button></div>`).join('')
                         :'<div style="color:var(--muted);font-size:13px;padding:8px 0">尚無授權團員</div>';
   openModal(`
-    <div class="modal-head"><div><h2>👥 管理權限</h2><div class="sub">管理員：${esc(d.admin||ADMIN_EMAIL)}</div></div><button class="close" onclick="closeModal()">×</button></div>
+    <div class="modal-head"><div><h2>👥 App 成員（誰能登入）</h2><div class="sub">管理員：${esc(d.admin||ADMIN_EMAIL)}</div></div><button class="close" onclick="closeModal()">×</button></div>
     <div class="modal-body">
-      <div class="field"><label>新增團員 Gmail（加入後對方用自己 Google 登入即可編輯）</label>
-        <div style="display:flex;gap:8px"><input id="al_email" type="email" placeholder="teammate@gmail.com" style="flex:1"><button class="btn primary" onclick="addAllow()">新增</button></div>
+      <div class="ph-note">這裡只決定「誰能登入 Trip Genie」。<b>加入後對方登入本身看不到任何行程</b>；要讓他看到某趟行程，還要進那趟行程按「🔗 分享」個別加入。</div>
+      <div class="field"><label>新增可登入的 Gmail</label>
+        <div style="display:flex;gap:8px"><input id="al_email" type="email" placeholder="family@gmail.com" style="flex:1"><button class="btn primary" onclick="addAllow()">新增</button></div>
       </div>
-      <div><div style="font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:4px">已授權團員</div>${rows}</div>
-      <div class="ph-note">把網址 <b>maeve-creator.github.io/trip-genie</b> 貼給團員即可；他們用自己的 Google 登入，只要在清單內就能編輯。</div>
+      <div><div style="font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:4px">可登入成員</div>${rows}</div>
     </div>
     <div class="modal-foot"><div class="spacer"></div><button class="btn primary" onclick="closeModal()">完成</button></div>`);
   setTimeout(()=>document.getElementById('al_email')?.focus(),50);
@@ -827,6 +854,38 @@ function addAllow(){
 function removeAllow(email){
   db.collection('config').doc('access').set({allowlist:firebase.firestore.FieldValue.arrayRemove(email)},{merge:true})
     .then(()=>{ toast('已移除 '+email); openAdmin(); }).catch(e=>toast('移除失敗：'+(e.code||e.message)));
+}
+
+/* ================= 單一行程分享（擁有者才可） ================= */
+function openShare(){
+  const t=state.trips.find(x=>x.id===cur.tripId); if(!t) return;
+  if(!(currentUser && t.owner===currentUser.email)){ toast('只有行程擁有者可以分享'); return; }
+  const list=(t.members||[]);
+  const rows=list.length?list.map(e=>`<div class="al-row"><span>${esc(e)}</span><button class="btn danger sm" onclick="removeMember('${esc(e)}')">移除</button></div>`).join('')
+                        :'<div style="color:var(--muted);font-size:13px;padding:8px 0">尚未分享給任何人（目前只有你看得到）</div>';
+  openModal(`
+    <div class="modal-head"><div><h2>🔗 分享「${esc(t.name)}」</h2><div class="sub">只有你和下列 Gmail 看得到、可編輯這趟行程</div></div><button class="close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div class="field"><label>加入可檢視／編輯的 Gmail</label>
+        <div style="display:flex;gap:8px"><input id="mb_email" type="email" placeholder="family@gmail.com" style="flex:1"><button class="btn primary" onclick="addMember()">加入</button></div>
+      </div>
+      <div><div style="font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:4px">目前分享對象</div>${rows}</div>
+      <div class="ph-note">對方需先在「👥 App 成員」清單內（才能登入 Trip Genie）；登入後他只會看到分享給他的行程，看不到你其他行程。網址：maeve-creator.github.io/trip-genie</div>
+    </div>
+    <div class="modal-foot"><div class="spacer"></div><button class="btn primary" onclick="closeModal()">完成</button></div>`);
+  setTimeout(()=>document.getElementById('mb_email')?.focus(),50);
+}
+function addMember(){
+  const email=(document.getElementById('mb_email').value||'').trim().toLowerCase();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ toast('請輸入正確的 Email'); return; }
+  const t=state.trips.find(x=>x.id===cur.tripId); if(!t) return;
+  t.members=t.members||[]; if(!t.members.includes(email)) t.members.push(email);
+  persistTrip(cur.tripId); openShare(); toast('已分享給 '+email);
+}
+function removeMember(email){
+  const t=state.trips.find(x=>x.id===cur.tripId); if(!t) return;
+  t.members=(t.members||[]).filter(x=>x!==email);
+  persistTrip(cur.tripId); openShare(); toast('已移除 '+email);
 }
 
 /* ================= 啟動 ================= */
