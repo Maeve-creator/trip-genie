@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trip Genie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,900&display=swap" rel="stylesheet">
+<style>
+/* ============ 主題色系 ============ */
+/* 森林：加重綠＋焦糖棕，輔色葉綠/莓紅 */
+:root{
+  --bg:#F1EDE1; --surface:#ffffff; --primary:#2C6E49; --primary-soft:#D3E7DA;
+  --accent:#B5651D; --accent-soft:#F0E1CE; --accent2:#7A9A4E; --accent3:#B24C57;
+  --meal-bg:#FAEFDD; --text:#26261D; --muted:#807A67; --line:#E1DCCB;
+  --shadow:0 6px 20px rgba(60,55,40,.12); --shadow-sm:0 2px 8px rgba(60,55,40,.10);
+  --radius:16px;
+}
+/* 海洋：加灰調的深→淺海水藍＋琥珀橙，輔色灰青綠/珊瑚 */
+[data-theme="ocean"]{
+  --bg:#E7EDF1; --surface:#ffffff; --primary:#2A6E96; --primary-soft:#C6D8E2;
+  --accent:#EE9040; --accent-soft:#F7E4D2; --accent2:#3596A0; --accent3:#E07A72;
+  --meal-bg:#DDE9EA; --text:#182A34; --muted:#607985; --line:#CBD9E1;
+  --shadow:0 6px 20px rgba(30,60,90,.14); --shadow-sm:0 2px 8px rgba(30,60,90,.11);
+}
+/* 城市：提亮藍＋番茄紅，加芥黃對比 */
+[data-theme="city"]{
+  --bg:#F5F3EF; --surface:#ffffff; --primary:#2F5D8A; --primary-soft:#D6E3F1;
+  --accent:#E4491F; --accent-soft:#FBDDD2; --accent2:#F4B740; --accent3:#3AA0A6;
+  --meal-bg:#FBE9E1; --text:#1E212A; --muted:#787A83; --line:#E1DED7;
+  --shadow:0 6px 20px rgba(35,38,43,.14); --shadow-sm:0 2px 8px rgba(35,38,43,.10);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:"PingFang TC","Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;
+  background:var(--bg); color:var(--text); min-height:100vh; transition:background .3s;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;cursor:pointer}
+input,textarea,select{font-family:inherit}
+
+/* ============ 頂欄 ============ */
+.topbar{
+  position:sticky;top:0;z-index:50;background:var(--surface);border-bottom:1px solid var(--line);
+  padding:12px 22px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow-sm);
+}
+.brand{font-family:"Fraunces",Georgia,serif;font-optical-sizing:auto;font-variation-settings:'opsz' 144,'SOFT' 40,'WONK' 1;font-weight:900;font-size:34px;line-height:1;color:var(--primary);letter-spacing:3px;display:flex;align-items:center;white-space:nowrap;padding:2px 0}
+.spacer{flex:1}
+.theme-switch{display:flex;gap:6px;background:var(--bg);padding:4px;border-radius:12px;border:1px solid var(--line)}
+.theme-btn{border:none;background:transparent;padding:6px 12px;border-radius:9px;font-size:13px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:5px;transition:.2s}
+.theme-btn .dot{width:12px;height:12px;border-radius:50%}
+.theme-btn[data-t="forest"] .dot{background:#2F6B4F}
+.theme-btn[data-t="ocean"] .dot{background:#3A86C8}
+.theme-btn[data-t="city"] .dot{background:#2E4A66}
+.theme-btn.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+
+/* ============ 通用按鈕 ============ */
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--text);padding:8px 15px;border-radius:11px;font-size:14px;font-weight:600;transition:.2s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--primary);color:var(--primary)}
+.btn.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.btn.primary:hover{filter:brightness(1.08);color:#fff}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn.ghost:hover{background:var(--bg);color:var(--text)}
+.btn.danger{color:#c0392b;border-color:#f0c8c2}
+.btn.danger:hover{background:#fbeae7;border-color:#c0392b}
+.btn.sm{padding:5px 10px;font-size:12.5px;border-radius:9px}
+
+/* ============ 首頁卡片牆 ============ */
+.wrap{max-width:1180px;margin:0 auto;padding:30px 24px 60px}
+.page-title{font-size:26px;font-weight:800;margin-bottom:4px}
+.page-sub{color:var(--muted);font-size:14px;margin-bottom:26px}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+.trip-card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  overflow:hidden;box-shadow:var(--shadow-sm);transition:.2s;cursor:pointer;position:relative;
+  display:flex;flex-direction:column;min-height:158px;
+}
+.trip-card:hover{transform:translateY(-4px);box-shadow:var(--shadow);border-color:var(--primary)}
+.trip-card .cover{height:74px;background:linear-gradient(135deg,var(--primary),var(--accent2));position:relative}
+.trip-card .cover .emoji{position:absolute;right:14px;bottom:8px;font-size:34px;opacity:.9}
+.trip-card .body{padding:14px 16px 16px;flex:1;display:flex;flex-direction:column;gap:6px}
+.trip-card .tname{font-size:17px;font-weight:800;line-height:1.3}
+.trip-card .tdate{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.trip-card .tmeta{margin-top:auto;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px;padding-top:8px}
+.trip-card .acts{position:absolute;top:8px;right:8px;display:flex;gap:5px;opacity:0;transition:.2s}
+.trip-card:hover .acts{opacity:1}
+.mini-btn{width:28px;height:28px;border-radius:8px;border:none;background:rgba(255,255,255,.9);color:#333;font-size:14px;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm)}
+.mini-btn:hover{background:#fff}
+.mini-btn.del:hover{background:#fbeae7;color:#c0392b}
+.add-card{
+  border:2px dashed var(--line);border-radius:var(--radius);background:transparent;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  color:var(--muted);font-weight:700;font-size:15px;min-height:158px;transition:.2s;cursor:pointer;
+}
+.add-card:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-soft)}
+.add-card .plus{font-size:34px;line-height:1;font-weight:300}
+.empty-hint{color:var(--muted);font-size:14px;padding:40px 0;text-align:center}
+
+/* ============ 行程內頁 ============ */
+.trip-head{background:var(--surface);border-bottom:1px solid var(--line);padding:12px 22px;display:flex;align-items:center;gap:14px;position:sticky;top:55px;z-index:40;box-shadow:var(--shadow-sm)}
+.trip-head .tt{font-size:18px;font-weight:800}
+.trip-head .td{font-size:13px;color:var(--muted)}
+.tabs{display:flex;gap:4px;background:var(--bg);padding:4px;border-radius:11px;border:1px solid var(--line)}
+.tab{border:none;background:transparent;padding:7px 16px;border-radius:8px;font-size:14px;font-weight:700;color:var(--muted)}
+.tab.active{background:var(--surface);color:var(--primary);box-shadow:var(--shadow-sm)}
+.mode-switch{display:flex;gap:4px;background:var(--bg);padding:4px;border-radius:11px;border:1px solid var(--line)}
+.mode-btn{border:none;background:transparent;padding:7px 13px;border-radius:8px;font-size:13px;font-weight:700;color:var(--muted)}
+.mode-btn.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.dropdown{position:relative}
+.dropdown .menu{position:absolute;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:6px;min-width:190px;display:none;z-index:60}
+.dropdown.open .menu{display:block}
+.menu-item{padding:9px 12px;border-radius:8px;font-size:13.5px;display:flex;align-items:center;gap:9px;color:var(--text)}
+.menu-item:hover{background:var(--bg)}
+.menu-item .tag{margin-left:auto;font-size:10px;color:var(--muted);background:var(--bg);padding:2px 6px;border-radius:6px}
+
+/* ============ 時間軸 grid ============ */
+.sched-scroll{overflow-x:auto;padding:18px 22px 60px}
+.sched{display:grid;min-width:max-content;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface)}
+.seg-label,.day-head,.cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.corner{background:var(--primary-soft);border-right:1px solid var(--line);border-bottom:1px solid var(--line);position:sticky;left:0;z-index:3}
+.day-head{background:var(--primary-soft);padding:10px 12px;text-align:center;position:sticky;top:0}
+.day-head .dh-date{font-size:14px;font-weight:800;color:var(--primary)}
+.day-head .dh-loc{font-size:11px;color:var(--muted);margin-top:2px;min-height:13px}
+.seg-label{background:var(--bg);padding:12px 10px;font-size:13px;font-weight:800;color:var(--text);position:sticky;left:0;z-index:2;display:flex;align-items:center;justify-content:center;text-align:center;min-width:76px}
+.cell{padding:7px;background:var(--surface);min-height:64px;display:flex;flex-direction:column;gap:6px;transition:background .15s}
+.cell.dragover{background:var(--primary-soft)}
+.seg-label.meal{background:var(--meal-bg);color:var(--accent)}
+.cell.meal{background:var(--meal-bg)}
+.cell.meal.dragover{background:var(--primary-soft)}
+.cell.spanning{background:linear-gradient(180deg,var(--accent-soft),transparent 60%),var(--surface)}
+.cell.spanning.meal{background:linear-gradient(180deg,var(--accent-soft),transparent 60%),var(--meal-bg)}
+.item.tall{flex:1 1 auto;display:flex;flex-direction:column;border-left-width:5px;border-left-color:var(--accent)}
+.item.tall .span-badge{margin-top:auto;align-self:flex-start;font-size:10px;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 7px;border-radius:6px}
+.resize-guide{position:fixed;background:var(--primary-soft);border:2px dashed var(--primary);opacity:.7;border-radius:10px;z-index:150;pointer-events:none;box-shadow:var(--shadow)}
+.item{
+  background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--primary);
+  border-radius:10px;padding:8px 9px 12px;font-size:12.5px;position:relative;box-shadow:var(--shadow-sm);
+  overflow:hidden;cursor:pointer;transition:box-shadow .15s;min-height:52px;
+}
+.item:hover{box-shadow:var(--shadow)}
+.item.dragging{opacity:.45}
+.item .it-title{font-weight:800;font-size:13px;line-height:1.35;padding-right:16px}
+.item .it-desc{color:var(--muted);margin-top:3px;line-height:1.4;white-space:pre-wrap}
+.item .it-hours{color:var(--accent);font-size:11px;margin-top:4px;font-weight:600}
+.item .it-map{color:var(--primary);font-size:11px;margin-top:3px;text-decoration:none;display:inline-flex;align-items:center;gap:3px}
+.item .grip{position:absolute;top:5px;right:6px;color:var(--muted);font-size:12px;cursor:grab;line-height:1;user-select:none}
+.item .rz{position:absolute;left:0;right:0;bottom:0;height:9px;cursor:ns-resize;display:flex;align-items:center;justify-content:center}
+.item .rz::after{content:"";width:26px;height:3px;border-radius:2px;background:var(--line)}
+.item:hover .rz::after{background:var(--muted)}
+.add-item{border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:9px;padding:5px;font-size:12px;font-weight:700;transition:.15s}
+.add-item:hover{border-color:var(--accent2);color:var(--accent2);background:var(--accent-soft)}
+
+/* ============ Checklist ============ */
+.chk-wrap{max-width:1000px;margin:0 auto;padding:24px 22px 60px}
+.chk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+.chk-cat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow-sm)}
+.chk-cat h3{font-size:15px;color:var(--primary);margin-bottom:12px;padding-bottom:8px;border-bottom:1px dashed var(--line);display:flex;align-items:center;gap:7px}
+.chk-item{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:14px}
+.chk-item input[type=checkbox]{width:17px;height:17px;accent-color:var(--primary);cursor:pointer;flex-shrink:0}
+.chk-item .txt{flex:1;outline:none;padding:2px 4px;border-radius:6px}
+.chk-item .txt:focus{background:var(--bg)}
+.chk-item.done .txt{text-decoration:line-through;color:var(--muted)}
+.chk-item .x{opacity:0;border:none;background:transparent;color:var(--muted);font-size:15px;padding:2px 5px;border-radius:6px}
+.chk-item:hover .x{opacity:1}
+.chk-item .x:hover{background:#fbeae7;color:#c0392b}
+.chk-add{margin-top:8px;width:100%;border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:8px;padding:6px;font-size:13px;font-weight:700}
+.chk-add:hover{border-color:var(--primary);color:var(--primary)}
+
+/* ============ Modal ============ */
+.overlay{position:fixed;inset:0;background:rgba(30,28,22,.42);backdrop-filter:blur(2px);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+.overlay.show{display:flex}
+.modal{background:var(--surface);border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:100%;max-width:480px;overflow:hidden;animation:pop .2s ease}
+@keyframes pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.modal-head h2{font-size:16px;font-weight:800}
+.modal-head .sub{font-size:12px;color:var(--muted);margin-top:2px}
+.modal-head .close{border:none;background:transparent;font-size:20px;color:var(--muted);width:32px;height:32px;border-radius:8px}
+.modal-head .close:hover{background:var(--bg);color:var(--text)}
+.modal-body{padding:18px 20px;display:flex;flex-direction:column;gap:14px;max-height:64vh;overflow-y:auto}
+.field label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:5px}
+.field input,.field textarea,.field select{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:14px;background:var(--bg);color:var(--text);transition:.15s}
+.field input:focus,.field textarea:focus,.field select:focus{outline:none;border-color:var(--primary);background:var(--surface)}
+.field textarea{resize:vertical;min-height:64px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center}
+.modal-foot .spacer{flex:1}
+
+/* 閱覽詳情 */
+.view-block{font-size:14px;line-height:1.6}
+.view-block .vb-label{font-size:11.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.view-block .vb-val{white-space:pre-wrap}
+.view-block a{color:var(--primary)}
+.ph-note{background:var(--accent-soft);border:1px dashed var(--accent);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--text)}
+
+/* Toast */
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:11px 20px;border-radius:12px;font-size:13.5px;font-weight:600;box-shadow:var(--shadow);opacity:0;transition:.25s;z-index:200;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body data-theme="forest">
+
+<!-- 頂欄 -->
+<div class="topbar">
+  <div class="brand"><span>Trip Genie</span></div>
+  <div class="spacer"></div>
+  <div class="theme-switch" id="themeSwitch">
+    <button class="theme-btn active" data-t="forest"><span class="dot"></span>森林</button>
+    <button class="theme-btn" data-t="ocean"><span class="dot"></span>海洋</button>
+    <button class="theme-btn" data-t="city"><span class="dot"></span>城市</button>
+  </div>
+</div>
+
+<!-- 首頁 -->
+<div id="homeView" class="wrap">
+  <div class="page-title">我的行程</div>
+  <div class="page-sub">點卡片進入規劃，或新增一趟新旅程 ✦</div>
+  <div class="card-grid" id="cardGrid"></div>
+</div>
+
+<!-- 行程內頁 -->
+<div id="tripView" hidden>
+  <div class="trip-head">
+    <button class="btn ghost" onclick="goHome()">← 返回</button>
+    <div>
+      <div class="tt" id="tripName">—</div>
+      <div class="td" id="tripDate">—</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="tabs">
+      <button class="tab active" data-tab="sched" onclick="switchTab('sched')">📅 日程</button>
+      <button class="tab" data-tab="chk" onclick="switchTab('chk')">✓ Checklist</button>
+    </div>
+    <div class="mode-switch" id="modeSwitch">
+      <button class="mode-btn active" data-m="edit" onclick="setMode('edit')">編輯</button>
+      <button class="mode-btn" data-m="view" onclick="setMode('view')">閱覽</button>
+    </div>
+    <button class="btn" onclick="saveNow()">💾 儲存行程</button>
+    <div class="dropdown" id="exportDD">
+      <button class="btn" onclick="toggleExport(event)">⬇ 匯出行程表 ▾</button>
+      <div class="menu">
+        <div class="menu-item" onclick="exportStub('HTML')">📄 匯出 HTML<span class="tag">Phase3</span></div>
+        <div class="menu-item" onclick="exportStub('PDF')">🖨 匯出 PDF<span class="tag">Phase3</span></div>
+        <div class="menu-item" onclick="exportStub('手機版')">📱 匯出手機版<span class="tag">Phase3</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 日程 -->
+  <div id="schedPane" class="sched-scroll"></div>
+  <!-- Checklist -->
+  <div id="chkPane" class="chk-wrap" hidden></div>
+</div>
+
+<!-- Modal 容器 -->
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= 資料層 (Phase 1: localStorage) ================= */
+const LS_KEY='travelPlanner_v1';
+const SEGMENTS=['早餐前','早餐','早上','午餐','下午茶','下午','晚餐','晚上','住宿'];
+const CHK_CATS=['重要事項','個人衣物','盥洗用品','3C產品','個人藥物','其他'];
+const WD=['日','一','二','三','四','五','六'];
+const COVER_EMOJI=['🏖️','🏔️','🌆','🗺️','🧳','🌸','🍜','⛩️'];
+
+let state=loadState();
+let cur={tripId:null, tab:'sched', mode:'edit'};
+
+function loadState(){
+  try{const s=JSON.parse(localStorage.getItem(LS_KEY)); if(s&&s.trips) return s;}catch(e){}
+  return {theme:'forest', trips:[], items:{}, checklist:{}};
+}
+function save(){ try{localStorage.setItem(LS_KEY,JSON.stringify(state));}catch(e){console.warn(e);} }
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+
+/* ================= 主題 ================= */
+function applyTheme(t){
+  state.theme=t; document.body.setAttribute('data-theme',t);
+  document.querySelectorAll('#themeSwitch .theme-btn').forEach(b=>b.classList.toggle('active',b.dataset.t===t));
+  save();
+}
+document.getElementById('themeSwitch').addEventListener('click',e=>{
+  const b=e.target.closest('.theme-btn'); if(!b)return;
+  const t=b.dataset.t; applyTheme(t);
+  if(cur.tripId){ state.trips.find(x=>x.id===cur.tripId).theme=t; save(); }
+});
+
+/* ================= 首頁卡片牆 ================= */
+function renderHome(){
+  const g=document.getElementById('cardGrid'); g.innerHTML='';
+  state.trips.forEach((t,i)=>{
+    const card=document.createElement('div'); card.className='trip-card';
+    card.onclick=()=>openTrip(t.id);
+    card.innerHTML=`
+      <div class="cover"><span class="emoji">${t.emoji||COVER_EMOJI[i%COVER_EMOJI.length]}</span></div>
+      <div class="acts">
+        <button class="mini-btn" title="編輯" onclick="event.stopPropagation();editTrip('${t.id}')">✎</button>
+        <button class="mini-btn del" title="刪除" onclick="event.stopPropagation();deleteTrip('${t.id}')">🗑</button>
+      </div>
+      <div class="body">
+        <div class="tname">${esc(t.name)||'未命名行程'}</div>
+        <div class="tdate">🗓 ${fmtRange(t.startDate,t.endDate)}</div>
+        <div class="tmeta">${dayCount(t.startDate,t.endDate)} 天 · ${(state.items[t.id]||[]).length} 個行程</div>
+      </div>`;
+    g.appendChild(card);
+  });
+  const add=document.createElement('div'); add.className='add-card'; add.onclick=()=>editTrip(null);
+  add.innerHTML=`<div class="plus">+</div><div>新增行程</div>`;
+  g.appendChild(add);
+  if(state.trips.length===0){
+    // 仍顯示新增卡；下方小提示
+  }
+}
+
+/* ================= 行程 CRUD ================= */
+function editTrip(id){
+  const t = id ? state.trips.find(x=>x.id===id) : {name:'',startDate:'',endDate:'',theme:state.theme};
+  const isNew=!id;
+  openModal(`
+    <div class="modal-head"><div><h2>${isNew?'新增行程':'編輯行程'}</h2></div>
+      <button class="close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div class="field"><label>行程名稱</label><input id="f_name" value="${esc(t.name)}" placeholder="例：馬來西亞婚禮之旅"></div>
+      <div class="row2">
+        <div class="field"><label>起日</label><input type="date" id="f_start" value="${t.startDate||''}"></div>
+        <div class="field"><label>迄日</label><input type="date" id="f_end" value="${t.endDate||''}"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <div class="spacer"></div>
+      <button class="btn ghost" onclick="closeModal()">取消</button>
+      <button class="btn primary" onclick="saveTrip('${id||''}')">${isNew?'建立':'儲存'}</button>
+    </div>`);
+  setTimeout(()=>document.getElementById('f_name').focus(),50);
+}
+function saveTrip(id){
+  const name=document.getElementById('f_name').value.trim();
+  const s=document.getElementById('f_start').value, e=document.getElementById('f_end').value;
+  if(!name){toast('請輸入行程名稱');return;}
+  if(!s||!e){toast('請選擇起訖日期');return;}
+  if(s>e){toast('迄日不可早於起日');return;}
+  if(id){
+    const t=state.trips.find(x=>x.id===id); Object.assign(t,{name,startDate:s,endDate:e});
+  }else{
+    const nid=uid();
+    state.trips.push({id:nid,name,startDate:s,endDate:e,theme:state.theme,emoji:COVER_EMOJI[state.trips.length%COVER_EMOJI.length]});
+    state.items[nid]=[]; state.checklist[nid]=blankChecklist();
+  }
+  save(); closeModal(); renderHome(); toast(id?'已更新':'行程已建立');
+}
+function deleteTrip(id){
+  const t=state.trips.find(x=>x.id===id);
+  confirmModal(`刪除「${esc(t.name)}」？`,'此行程的所有日程與 Checklist 會一併刪除，無法復原。',()=>{
+    state.trips=state.trips.filter(x=>x.id!==id); delete state.items[id]; delete state.checklist[id];
+    save(); renderHome(); toast('已刪除');
+  });
+}
+function blankChecklist(){const o={};CHK_CATS.forEach(c=>o[c]=[]);return o;}
+
+/* ================= 開行程內頁 ================= */
+function openTrip(id){
+  cur.tripId=id; cur.tab='sched'; cur.mode='edit';
+  const t=state.trips.find(x=>x.id===id);
+  if(t.theme) applyTheme(t.theme);
+  if(!state.items[id]) state.items[id]=[];
+  if(!state.checklist[id]) state.checklist[id]=blankChecklist();
+  document.getElementById('homeView').hidden=true;
+  document.getElementById('tripView').hidden=false;
+  document.getElementById('tripName').textContent=t.name;
+  document.getElementById('tripDate').textContent=`${fmtRange(t.startDate,t.endDate)} · ${dayCount(t.startDate,t.endDate)} 天`;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='sched'));
+  document.getElementById('schedPane').hidden=false; document.getElementById('chkPane').hidden=true;
+  setMode('edit');
+  renderSched();
+}
+function goHome(){cur.tripId=null;document.getElementById('tripView').hidden=true;document.getElementById('homeView').hidden=false;renderHome();}
+function switchTab(tab){
+  cur.tab=tab;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+  document.getElementById('schedPane').hidden=(tab!=='sched');
+  document.getElementById('chkPane').hidden=(tab!=='chk');
+  if(tab==='chk') renderChecklist(); else renderSched();
+}
+function setMode(m){
+  cur.mode=m;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.toggle('active',b.dataset.m===m));
+  if(cur.tab==='sched') renderSched(); else renderChecklist();
+}
+
+/* ================= 日程 grid ================= */
+function tripDays(t){
+  const days=[]; let d=new Date(t.startDate+'T00:00:00'); const end=new Date(t.endDate+'T00:00:00');
+  while(d<=end){ days.push(fmtDate(d)); d.setDate(d.getDate()+1); }
+  return days;
+}
+const MEALS=['早餐','午餐','晚餐'];
+function renderSched(){
+  const t=state.trips.find(x=>x.id===cur.tripId); if(!t)return;
+  const days=tripDays(t);
+  const pane=document.getElementById('schedPane');
+  const grid=document.createElement('div'); grid.className='sched';
+  grid.style.gridTemplateColumns=`76px repeat(${days.length}, minmax(190px,1fr))`;
+  grid.style.gridTemplateRows=`auto repeat(${SEGMENTS.length}, auto)`;
+  // 表頭
+  const corner=document.createElement('div'); corner.className='corner day-head';
+  corner.style.gridColumn='1'; corner.style.gridRow='1';
+  corner.innerHTML=`<div class="dh-date" style="font-size:12px">時間段</div>`; grid.appendChild(corner);
+  days.forEach((dt,di)=>{
+    const dd=new Date(dt+'T00:00:00');
+    const h=document.createElement('div'); h.className='day-head';
+    h.style.gridColumn=(di+2); h.style.gridRow='1';
+    h.innerHTML=`<div class="dh-date">${(dd.getMonth()+1)}/${dd.getDate()} (${WD[dd.getDay()]})</div><div class="dh-loc"></div>`;
+    grid.appendChild(h);
+  });
+  const items=state.items[cur.tripId]||[];
+  // 被跨段長卡覆蓋的格子（同日、起始段下方 span-1 段）
+  const covered=new Set();
+  items.forEach(it=>{const sp=it.spanSegments||1;if(sp>1){const si=SEGMENTS.indexOf(it.segment);for(let k=1;k<sp&&si+k<SEGMENTS.length;k++)covered.add(it.dayDate+'|'+(si+k));}});
+  // 段標籤 + 各日格
+  SEGMENTS.forEach((seg,si)=>{
+    const lab=document.createElement('div'); lab.className='seg-label'+(MEALS.includes(seg)?' meal':'');
+    lab.textContent=seg; lab.style.gridColumn='1'; lab.style.gridRow=(si+2); grid.appendChild(lab);
+    days.forEach((dt,di)=>{
+      if(covered.has(dt+'|'+si)) return; // 被上方長卡覆蓋，不畫
+      const list=items.filter(it=>it.dayDate===dt&&it.segment===seg).sort((a,b)=>a.orderInSegment-b.orderInSegment);
+      let cellSpan=1; list.forEach(it=>{const sp=Math.min(it.spanSegments||1,SEGMENTS.length-si);if(sp>cellSpan)cellSpan=sp;});
+      const cell=document.createElement('div'); cell.className='cell'+(MEALS.includes(seg)?' meal':'')+(cellSpan>1?' spanning':'');
+      cell.dataset.day=dt; cell.dataset.seg=seg;
+      cell.style.gridColumn=(di+2); cell.style.gridRow=`${si+2} / span ${cellSpan}`;
+      list.forEach(it=>cell.appendChild(renderItem(it,si)));
+      if(cur.mode==='edit' && cellSpan===1){
+        const add=document.createElement('button'); add.className='add-item'; add.textContent='＋ 新增';
+        add.onclick=()=>editItem(null,dt,seg); cell.appendChild(add);
+      }
+      setupDrop(cell);
+      grid.appendChild(cell);
+    });
+  });
+  pane.innerHTML=''; pane.appendChild(grid);
+}
+function renderItem(it,startIdx){
+  const span=Math.min(it.spanSegments||1, SEGMENTS.length-(startIdx??SEGMENTS.indexOf(it.segment)));
+  const box=document.createElement('div'); box.className='item'+(span>1?' tall':''); box.dataset.id=it.id;
+  let html=`<div class="it-title">${esc(it.title)||'（未命名地點）'}</div>`;
+  if(it.desc) html+=`<div class="it-desc">${esc(it.desc)}</div>`;
+  if(it.hours||it.closedDay){
+    const parts=[]; if(it.closedDay)parts.push(it.closedDay); if(it.hours)parts.push(it.hours);
+    html+=`<div class="it-hours">🕐 ${esc(parts.join('，'))}</div>`;
+  }
+  if(span>1 && cur.mode==='edit'){const si=SEGMENTS.indexOf(it.segment);html+=`<span class="span-badge">↕ ${SEGMENTS[si]}－${SEGMENTS[Math.min(si+span-1,SEGMENTS.length-1)]}（跨 ${span} 段）</span>`;}
+  if(cur.mode==='edit'){
+    html+=`<span class="grip" title="拖曳移動">⠿</span><div class="rz" title="往下拉可跨時間段"></div>`;
+  }
+  box.innerHTML=html;
+  box.onclick=(e)=>{ if(box.dataset.resizing)return; if(cur.mode==='edit') editItem(it.id); else viewItem(it.id); };
+  if(cur.mode==='edit'){
+    box.draggable=true;
+    box.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',it.id);box.classList.add('dragging');});
+    box.addEventListener('dragend',()=>box.classList.remove('dragging'));
+    setupResize(box,it);
+  }
+  return box;
+}
+function setupDrop(cell){
+  cell.addEventListener('dragover',e=>{e.preventDefault();cell.classList.add('dragover');});
+  cell.addEventListener('dragleave',()=>cell.classList.remove('dragover'));
+  cell.addEventListener('drop',e=>{
+    e.preventDefault();cell.classList.remove('dragover');
+    const id=e.dataTransfer.getData('text/plain'); if(!id)return;
+    const it=state.items[cur.tripId].find(x=>x.id===id); if(!it)return;
+    const targetSeg=cell.dataset.seg, targetDay=cell.dataset.day;
+    // 計算插入位置（放在滑鼠下方最近的 item 之前）
+    const boxes=[...cell.querySelectorAll('.item')].filter(b=>b.dataset.id!==id);
+    let insertBefore=null;
+    for(const b of boxes){const r=b.getBoundingClientRect(); if(e.clientY < r.top+r.height/2){insertBefore=b.dataset.id;break;}}
+    it.dayDate=targetDay; it.segment=targetSeg;
+    reorderSegment(targetDay,targetSeg,id,insertBefore);
+    save(); renderSched();
+  });
+}
+function reorderSegment(day,seg,movedId,beforeId){
+  let list=state.items[cur.tripId].filter(x=>x.dayDate===day&&x.segment===seg&&x.id!==movedId)
+            .sort((a,b)=>a.orderInSegment-b.orderInSegment);
+  const moved=state.items[cur.tripId].find(x=>x.id===movedId);
+  const idx = beforeId ? list.findIndex(x=>x.id===beforeId) : list.length;
+  list.splice(idx<0?list.length:idx,0,moved);
+  list.forEach((x,i)=>x.orderInSegment=i);
+}
+// 拖底部灰桿：往下拉可讓行程「跨越多個時間段」（例如水族館一日遊佔早餐~下午）
+function setupResize(box,it){
+  const rz=box.querySelector('.rz'); if(!rz)return;
+  rz.addEventListener('mousedown',e=>{
+    e.preventDefault();e.stopPropagation();box.dataset.resizing='1';box.draggable=false;
+    const startIdx=SEGMENTS.indexOf(it.segment);
+    // 抓各時間段列的垂直範圍（畫面座標），拖曳過程不改版面避免抖動
+    const ranges=[...document.querySelectorAll('.sched .seg-label')].map((l)=>{const r=l.getBoundingClientRect();return {top:r.top,bottom:r.bottom};});
+    const boxRect=box.getBoundingClientRect();
+    const colRect=(box.closest('.cell')||box).getBoundingClientRect();
+    const guide=document.createElement('div'); guide.className='resize-guide'; document.body.appendChild(guide);
+    function targetIdxOf(y){let idx=startIdx;ranges.forEach((r,i)=>{if(i>=startIdx && y>=r.top)idx=i;});return idx;}
+    function draw(y){
+      const ti=targetIdxOf(y); const bottom=ranges[ti]?ranges[ti].bottom:y;
+      guide.style.left=colRect.left+3+'px'; guide.style.width=(colRect.width-6)+'px';
+      guide.style.top=boxRect.top+'px'; guide.style.height=Math.max(24,(Math.max(y,bottom)-boxRect.top))+'px';
+    }
+    function mv(ev){draw(ev.clientY);}
+    function up(ev){
+      document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);guide.remove();
+      const ti=targetIdxOf(ev.clientY);
+      it.spanSegments=Math.max(1, Math.min(ti-startIdx+1, SEGMENTS.length-startIdx));
+      box.draggable=true; setTimeout(()=>delete box.dataset.resizing,50);
+      save(); renderSched();
+    }
+    document.addEventListener('mousemove',mv);document.addEventListener('mouseup',up); draw(e.clientY);
+  });
+}
+
+/* ================= 行程項目編輯 / 閱覽 ================= */
+function editItem(id,day,seg){
+  const items=state.items[cur.tripId];
+  const it = id ? items.find(x=>x.id===id) : {title:'',desc:'',hours:'',closedDay:'',mapUrl:'',dayDate:day,segment:seg};
+  const isNew=!id;
+  const days=tripDays(state.trips.find(x=>x.id===cur.tripId));
+  const dayOpts=days.map(d=>{const dd=new Date(d+'T00:00:00');return `<option value="${d}" ${d===it.dayDate?'selected':''}>${(dd.getMonth()+1)}/${dd.getDate()} (${WD[dd.getDay()]})</option>`}).join('');
+  const segOpts=SEGMENTS.map(s=>`<option value="${s}" ${s===it.segment?'selected':''}>${s}</option>`).join('');
+  openModal(`
+    <div class="modal-head"><div><h2>${isNew?'新增行程':'編輯行程'}</h2><div class="sub">${it.dayDate?fmtDay(it.dayDate):''} · ${it.segment||''}</div></div>
+      <button class="close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div class="row2">
+        <div class="field"><label>日期</label><select id="f_day">${dayOpts}</select></div>
+        <div class="field"><label>時間段</label><select id="f_seg">${segOpts}</select></div>
+      </div>
+      <div class="field"><label>地點 *</label><input id="f_title" value="${esc(it.title)}" placeholder="例：英姐咖哩麵"></div>
+      <div class="field"><label>說明</label><textarea id="f_desc" placeholder="想吃什麼、交通、備註…">${esc(it.desc)}</textarea></div>
+      <div class="row2">
+        <div class="field"><label>公休日</label><input id="f_closed" value="${esc(it.closedDay)}" placeholder="例：週一休"></div>
+        <div class="field"><label>營業時間</label><input id="f_hours" value="${esc(it.hours)}" placeholder="例：06:00-14:00"></div>
+      </div>
+      <div class="field"><label>Google 地圖連結</label><input id="f_map" value="${esc(it.mapUrl)}" placeholder="貼上 Google Maps 網址"></div>
+    </div>
+    <div class="modal-foot">
+      ${isNew?'':'<button class="btn danger" onclick="deleteItem(\''+id+'\')">🗑 刪除行程</button>'}
+      <div class="spacer"></div>
+      <button class="btn ghost" onclick="closeModal()">取消</button>
+      <button class="btn primary" onclick="saveItem('${id||''}')">儲存行程</button>
+    </div>`);
+  setTimeout(()=>document.getElementById('f_title').focus(),50);
+}
+function saveItem(id){
+  const items=state.items[cur.tripId];
+  const v=k=>document.getElementById(k).value.trim();
+  const title=v('f_title');
+  if(!title){toast('請輸入地點');return;}
+  const day=document.getElementById('f_day').value, seg=document.getElementById('f_seg').value;
+  const data={title,desc:v('f_desc'),closedDay:v('f_closed'),hours:v('f_hours'),mapUrl:v('f_map'),dayDate:day,segment:seg};
+  if(id){
+    const it=items.find(x=>x.id===id); const segChanged=(it.segment!==seg||it.dayDate!==day);
+    Object.assign(it,data);
+    if(segChanged){const cnt=items.filter(x=>x.dayDate===day&&x.segment===seg&&x.id!==id).length;it.orderInSegment=cnt;}
+  }else{
+    const cnt=items.filter(x=>x.dayDate===day&&x.segment===seg).length;
+    items.push({id:uid(),...data,orderInSegment:cnt,spanSegments:1});
+  }
+  save(); closeModal(); renderSched(); toast('已儲存');
+}
+function deleteItem(id){
+  state.items[cur.tripId]=state.items[cur.tripId].filter(x=>x.id!==id);
+  save(); closeModal(); renderSched(); toast('已刪除');
+}
+function viewItem(id){
+  const it=state.items[cur.tripId].find(x=>x.id===id); if(!it)return;
+  let blocks='';
+  const add=(label,val,isLink)=>{ if(!val)return;
+    blocks+=`<div class="view-block"><div class="vb-label">${label}</div><div class="vb-val">${isLink?`<a href="${esc(val)}" target="_blank">📍 在 Google Maps 開啟</a>`:esc(val)}</div></div>`;
+  };
+  add('說明',it.desc);
+  const timeStr=[it.closedDay,it.hours].filter(Boolean).join('，');
+  add('營業時間',timeStr);
+  add('地圖',it.mapUrl,true);
+  openModal(`
+    <div class="modal-head"><div><h2>${esc(it.title)||'（未命名地點）'}</h2><div class="sub">${fmtDay(it.dayDate)} · ${it.segment}</div></div>
+      <button class="close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      ${blocks||'<div style="color:var(--muted);font-size:14px">（尚未填寫內容）</div>'}
+      <div class="ph-note">🖼️ <b>代表圖片</b>將在 <b>Phase 3</b> 接上 Google 地圖照片（1 大圖＋3~4 小圖）。目前先顯示地圖連結。</div>
+    </div>
+    <div class="modal-foot"><div class="spacer"></div><button class="btn primary" onclick="closeModal()">關閉</button></div>`);
+}
+
+/* ================= Checklist ================= */
+function renderChecklist(){
+  const cl=state.checklist[cur.tripId]||blankChecklist();
+  const pane=document.getElementById('chkPane');
+  const grid=document.createElement('div'); grid.className='chk-grid';
+  const ICON={'重要事項':'📌','個人衣物':'👕','盥洗用品':'🧴','3C產品':'🔌','個人藥物':'💊','其他':'🎒'};
+  const editing=(cur.mode==='edit');
+  CHK_CATS.forEach(cat=>{
+    const box=document.createElement('div'); box.className='chk-cat';
+    let items='';
+    (cl[cat]||[]).forEach((item,i)=>{
+      items+=`<div class="chk-item ${item.checked?'done':''}">
+        <input type="checkbox" ${item.checked?'checked':''} onchange="toggleChk('${cat}',${i},this.checked)">
+        <div class="txt" ${editing?'contenteditable="true"':''} onblur="editChk('${cat}',${i},this.textContent)">${esc(item.text)}</div>
+        ${editing?`<button class="x" onclick="delChk('${cat}',${i})">×</button>`:''}
+      </div>`;
+    });
+    const addBtn=editing?`<button class="chk-add" onclick="addChk('${cat}')">＋ 新增項目</button>`:'';
+    box.innerHTML=`<h3>${ICON[cat]||''} ${cat}</h3>${items||(editing?'':'<div style="color:var(--muted);font-size:13px;padding:4px 0">（無項目）</div>')}${addBtn}`;
+    grid.appendChild(box);
+  });
+  pane.innerHTML=''; pane.appendChild(grid);
+}
+function ensureCL(){ if(!state.checklist[cur.tripId])state.checklist[cur.tripId]=blankChecklist(); return state.checklist[cur.tripId]; }
+function addChk(cat){ const cl=ensureCL(); cl[cat].push({text:'新項目',checked:false}); save(); renderChecklist(); }
+function editChk(cat,i,txt){ const cl=ensureCL(); if(cl[cat][i]){cl[cat][i].text=txt.trim();save();} }
+function toggleChk(cat,i,val){ const cl=ensureCL(); if(cl[cat][i]){cl[cat][i].checked=val;save();renderChecklist();} }
+function delChk(cat,i){ const cl=ensureCL(); cl[cat].splice(i,1); save(); renderChecklist(); }
+
+/* ================= Modal / Toast 基礎 ================= */
+function openModal(html){document.getElementById('modal').innerHTML=html;document.getElementById('overlay').classList.add('show');}
+function closeModal(){document.getElementById('overlay').classList.remove('show');}
+document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeModal();});
+function confirmModal(title,msg,onYes){
+  openModal(`<div class="modal-head"><h2>${title}</h2><button class="close" onclick="closeModal()">×</button></div>
+    <div class="modal-body"><div style="font-size:14px;line-height:1.6;color:var(--muted)">${msg}</div></div>
+    <div class="modal-foot"><div class="spacer"></div><button class="btn ghost" onclick="closeModal()">取消</button>
+    <button class="btn danger" id="cfmYes">確定刪除</button></div>`);
+  document.getElementById('cfmYes').onclick=()=>{closeModal();onYes();};
+}
+let toastT;
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),1800);}
+function saveNow(){save();toast('✓ 已儲存到本機（Phase 2 將上雲同步）');}
+function toggleExport(e){e.stopPropagation();document.getElementById('exportDD').classList.toggle('open');}
+document.addEventListener('click',()=>document.getElementById('exportDD')?.classList.remove('open'));
+function exportStub(type){toast(`「匯出${type}」將於 Phase 3 開放`);}
+
+/* ================= 小工具 ================= */
+function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function fmtRange(s,e){ if(!s||!e)return '未設定日期'; const a=new Date(s+'T00:00:00'),b=new Date(e+'T00:00:00');
+  return `${a.getFullYear()}/${a.getMonth()+1}/${a.getDate()} – ${b.getMonth()+1}/${b.getDate()}`; }
+function fmtDay(d){const dd=new Date(d+'T00:00:00');return `${dd.getMonth()+1}/${dd.getDate()} (${WD[dd.getDay()]})`;}
+function dayCount(s,e){ if(!s||!e)return 0; return Math.round((new Date(e)-new Date(s))/864e5)+1; }
+
+/* ================= 啟動 ================= */
+applyTheme(state.theme||'forest');
+renderHome();
+</script>
+</body>
+</html>
