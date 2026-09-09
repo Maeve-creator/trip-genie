@@ -768,15 +768,15 @@ async function onAuth(user){
   if(!user){ currentUser=null; document.getElementById('userChip').hidden=true; showGate('signin'); return; }
   currentUser=user; showGate('loading');
   let allowed=false;
-  try{
-    const acc=await db.collection('config').doc('access').get();
-    if(acc.exists){
-      const d=acc.data();
-      allowed=(user.email===(d.admin||ADMIN_EMAIL))||(Array.isArray(d.allowlist)&&d.allowlist.includes(user.email));
-    } else if(user.email===ADMIN_EMAIL){
-      await db.collection('config').doc('access').set({admin:ADMIN_EMAIL,allowlist:[]}); allowed=true;
-    }
-  }catch(e){ toast('讀取權限失敗：'+(e.code||e.message)); }
+  if(user.email===ADMIN_EMAIL){
+    allowed=true;   // 管理員直接放行，不等權限文件（避免載入卡住）
+    db.collection('config').doc('access').get().then(a=>{ if(!a.exists) db.collection('config').doc('access').set({admin:ADMIN_EMAIL,allowlist:[]}); }).catch(()=>{});
+  } else {
+    try{
+      const acc=await db.collection('config').doc('access').get();
+      if(acc.exists){ const d=acc.data(); allowed=Array.isArray(d.allowlist)&&d.allowlist.includes(user.email); }
+    }catch(e){ toast('讀取權限失敗：'+(e.code||e.message)); }
+  }
   if(!allowed){ document.getElementById('gateEmail').textContent=user.email; document.getElementById('userChip').hidden=true; showGate('noaccess'); return; }
   isAdmin=(user.email===ADMIN_EMAIL);
   document.getElementById('uEmail').textContent=user.email;
@@ -784,11 +784,12 @@ async function onAuth(user){
   document.getElementById('adminBtn').hidden=!isAdmin;
   document.getElementById('userChip').hidden=false;
   hideGate(); startCloud();
+  setTimeout(()=>{ if(!appStarted) bootUI(); }, 6000);   // 保險：資料若卡住也先顯示首頁
 }
 function startCloud(){
   const em=currentUser.email;
   if(unsubOwner) unsubOwner(); if(unsubMember) unsubMember();
-  const onErr=e=>toast('雲端連線失敗：'+(e.code||e.message));
+  const onErr=e=>{ toast('雲端連線失敗：'+(e.code||e.message)); if(!appStarted) bootUI(); };
   // 我擁有的行程
   unsubOwner=db.collection('trips').where('owner','==',em)
     .onSnapshot(s=>{ tripsOwner={}; s.forEach(d=>tripsOwner[d.id]=d.data()); mergeTrips(allOwn(s)); }, onErr);
@@ -870,7 +871,7 @@ function openShare(){
         <div style="display:flex;gap:8px"><input id="mb_email" type="email" placeholder="family@gmail.com" style="flex:1"><button class="btn primary" onclick="addMember()">加入</button></div>
       </div>
       <div><div style="font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:4px">目前分享對象</div>${rows}</div>
-      <div class="ph-note">對方需先在「👥 App 成員」清單內（才能登入 Trip Genie）；登入後他只會看到分享給他的行程，看不到你其他行程。網址：maeve-creator.github.io/trip-genie</div>
+      <div class="ph-note">對方需先在「👥 App 成員」清單內（才能登入 Trip Genie）；登入後他只會看到分享給他的行程，看不到你其他行程。<br>網址：<b>trip-genie-cccb2.firebaseapp.com</b></div>
     </div>
     <div class="modal-foot"><div class="spacer"></div><button class="btn primary" onclick="closeModal()">完成</button></div>`);
   setTimeout(()=>document.getElementById('mb_email')?.focus(),50);
@@ -894,6 +895,7 @@ function initApp(){
     try{
       firebase.initializeApp(FB_CONFIG);
       auth=firebase.auth(); db=firebase.firestore(); cloud=true;
+      try{ db.settings({experimentalAutoDetectLongPolling:true}); }catch(e){}   // 解某些 iOS/網路下 Firestore 串流卡住
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
       showGate('loading');
       auth.getRedirectResult().catch(e=>{ if(e&&e.code) toast('登入失敗：'+e.code); showGate('signin'); });
