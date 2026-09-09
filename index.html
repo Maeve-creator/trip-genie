@@ -317,7 +317,8 @@ const ADMIN_EMAIL='maevemomo@gmail.com';
 let state=emptyState();
 let cur={tripId:null, tab:'sched', mode:'edit'};
 let cloud=false, db=null, auth=null, currentUser=null, isAdmin=false;
-let wsRef=null, unsub=null, lastPushed='', applyingRemote=false, appStarted=false, saveTimer=null, pendingRemote=null;
+const CLIENT_ID=Math.random().toString(36).slice(2)+Date.now().toString(36);
+let wsRef=null, unsub=null, applyingRemote=false, appStarted=false, saveTimer=null, pendingRemote=null;
 
 function emptyState(){return {theme:'forest', trips:[], items:{}, checklist:{}};}
 function normalizeState(){
@@ -337,8 +338,7 @@ function save(){
 }
 function cloudSave(){
   if(!wsRef) return;
-  lastPushed=JSON.stringify(state);
-  wsRef.set({state:JSON.parse(lastPushed), updatedAt:firebase.firestore.FieldValue.serverTimestamp(), updatedBy:currentUser?currentUser.email:''})
+  wsRef.set({state:JSON.parse(JSON.stringify(state)), writer:CLIENT_ID, updatedAt:firebase.firestore.FieldValue.serverTimestamp(), updatedBy:currentUser?currentUser.email:''})
     .catch(e=>toast('雲端儲存失敗：'+(e.code||e.message)));
 }
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
@@ -691,7 +691,7 @@ function delChk(cat,i){ const cl=ensureCL(); cl[cat].splice(i,1); save(); render
 function openModal(html){document.getElementById('modal').innerHTML=html;document.getElementById('overlay').classList.add('show');}
 function closeModal(){
   document.getElementById('overlay').classList.remove('show');
-  if(pendingRemote){ applyingRemote=true; state=pendingRemote; normalizeState(); lastPushed=JSON.stringify(state); pendingRemote=null; applyingRemote=false; rerenderCurrent(); }
+  if(pendingRemote){ applyingRemote=true; state=pendingRemote; normalizeState(); pendingRemote=null; rerenderCurrent(); applyingRemote=false; }
 }
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeModal();});
 function confirmModal(title,msg,onYes){
@@ -778,11 +778,12 @@ function startCloud(){
       normalizeState(); cloudSave(); if(!appStarted) bootUI(); return;
     }
     const data=snap.data()||{};
-    const incoming=JSON.stringify(data.state||{});
-    if(incoming===lastPushed){ if(!appStarted) bootUI(); return; }               // 自己寫的回音
+    if(data.writer===CLIENT_ID){ if(!appStarted) bootUI(); return; }             // 自己這台寫的，略過（避免重繪迴圈）
     if(document.getElementById('overlay').classList.contains('show')){ pendingRemote=data.state||emptyState(); if(!appStarted) bootUI(); return; } // 編輯中先擱置
-    applyingRemote=true; state=data.state||emptyState(); normalizeState(); lastPushed=incoming; applyingRemote=false;
+    applyingRemote=true;
+    state=data.state||emptyState(); normalizeState();
     if(!appStarted) bootUI(); else rerenderCurrent();
+    applyingRemote=false;
   }, err=>toast('雲端連線失敗：'+(err.code||err.message)));
 }
 function bootUI(){ appStarted=true; normalizeState(); applyTheme(state.theme||'forest'); if(cur.tripId) rerenderCurrent(); else renderHome(); }
