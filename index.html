@@ -736,7 +736,14 @@ function showGate(mode){
 function hideGate(){ document.getElementById('authGate').hidden=true; }
 function doSignIn(){
   const p=new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(p).catch(e=>{ if(e.code!=='auth/popup-closed-by-user'&&e.code!=='auth/cancelled-popup-request') toast('登入失敗：'+(e.code||e.message)); });
+  p.setCustomParameters({prompt:'select_account'});
+  showGate('loading');
+  // 先試彈窗；被擋就退回整頁跳轉（redirect），跨瀏覽器/手機最穩
+  auth.signInWithPopup(p).catch(e=>{
+    if(e.code==='auth/popup-blocked'||e.code==='auth/popup-closed-by-user'||e.code==='auth/cancelled-popup-request'){
+      auth.signInWithRedirect(p).catch(er=>{ toast('登入失敗：'+(er.code||er.message)); showGate('signin'); });
+    } else { toast('登入失敗：'+(e.code||e.message)); showGate('signin'); }
+  });
 }
 function doSignOut(){ if(auth) auth.signOut(); }
 
@@ -828,7 +835,9 @@ function initApp(){
       firebase.initializeApp(FB_CONFIG);
       auth=firebase.auth(); db=firebase.firestore(); cloud=true;
       auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
-      showGate('loading'); auth.onAuthStateChanged(onAuth); return;
+      showGate('loading');
+      auth.getRedirectResult().catch(e=>{ if(e&&e.code) toast('登入失敗：'+e.code); showGate('signin'); });
+      auth.onAuthStateChanged(onAuth); return;
     }catch(e){ console.warn('Firebase init 失敗，改用本機模式',e); }
   }
   cloud=false; state=loadLocal(); normalizeState(); applyTheme(state.theme||'forest'); renderHome();
