@@ -7,6 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
 <style>
 /* ============ 主題色系 ============ */
 /* 森林：加重綠＋焦糖棕，輔色葉綠/莓紅 */
@@ -197,9 +200,39 @@ input,textarea,select{font-family:inherit}
 .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:11px 20px;border-radius:12px;font-size:13.5px;font-weight:600;box-shadow:var(--shadow);opacity:0;transition:.25s;z-index:200;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 [hidden]{display:none!important}
+
+/* ============ 登入閘門 / 使用者 ============ */
+.auth-gate{position:fixed;inset:0;z-index:300;background:linear-gradient(135deg,var(--primary),var(--accent2));display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-card{background:var(--surface);border-radius:22px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:38px 34px;max-width:380px;width:100%;text-align:center}
+.auth-logo{font-family:"Dela Gothic One",serif;font-size:30px;color:var(--primary);margin-bottom:18px;letter-spacing:1px}
+.auth-msg{font-size:15px;color:var(--text);line-height:1.6;margin-bottom:16px}
+.auth-sub{font-size:13px;color:var(--muted);margin-bottom:16px}
+.auth-btn{width:100%;justify-content:center;padding:12px;font-size:15px}
+.user-chip{display:flex;align-items:center;gap:8px}
+.user-chip .uemail{font-size:12.5px;color:var(--muted);max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.al-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+.al-row span{flex:1;overflow:hidden;text-overflow:ellipsis}
+.al-admin{background:var(--primary-soft);color:var(--primary);font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;margin-left:6px}
 </style>
 </head>
 <body data-theme="forest">
+
+<!-- 登入閘門 -->
+<div id="authGate" class="auth-gate" hidden>
+  <div class="auth-card">
+    <div class="auth-logo">Trip Genie</div>
+    <div id="gateLoading" class="auth-msg">載入中…</div>
+    <div id="gateSignin" hidden>
+      <p class="auth-msg">用 Google 帳號登入，開始規劃你的旅程 ✦</p>
+      <button class="btn primary auth-btn" onclick="doSignIn()">🔑 使用 Google 登入</button>
+    </div>
+    <div id="gateNoaccess" hidden>
+      <p class="auth-msg">此帳號 <b id="gateEmail"></b><br>尚未被授權使用。</p>
+      <p class="auth-sub">請聯絡管理員把你的 Gmail 加入允許清單。</p>
+      <button class="btn auth-btn" onclick="doSignOut()">← 換其他帳號登入</button>
+    </div>
+  </div>
+</div>
 
 <!-- 頂欄 -->
 <div class="topbar">
@@ -209,6 +242,11 @@ input,textarea,select{font-family:inherit}
     <button class="theme-btn active" data-t="forest"><span class="dot"></span>森林</button>
     <button class="theme-btn" data-t="ocean"><span class="dot"></span>海洋</button>
     <button class="theme-btn" data-t="city"><span class="dot"></span>城市</button>
+  </div>
+  <div class="user-chip" id="userChip" hidden>
+    <button class="btn sm" id="adminBtn" onclick="openAdmin()" hidden>👥 管理權限</button>
+    <span class="uemail" id="uEmail" title=""></span>
+    <button class="btn ghost sm" onclick="doSignOut()">登出</button>
   </div>
 </div>
 
@@ -265,14 +303,44 @@ const CHK_CATS=['重要事項','個人衣物','盥洗用品','3C產品','個人�
 const WD=['日','一','二','三','四','五','六'];
 const COVER_EMOJI=['🏖️','🏔️','🌆','🗺️','🧳','🌸','🍜','⛩️'];
 
-let state=loadState();
-let cur={tripId:null, tab:'sched', mode:'edit'};
+// Firebase 設定（公開金鑰，安全靠 Firestore 規則把關）
+const FB_CONFIG={
+  apiKey:"AIzaSyBVtLH6uKT3Tgew2Hvr6_SpxxT39lkQrCk",
+  authDomain:"trip-genie-cccb2.firebaseapp.com",
+  projectId:"trip-genie-cccb2",
+  storageBucket:"trip-genie-cccb2.firebasestorage.app",
+  messagingSenderId:"519815790357",
+  appId:"1:519815790357:web:85203fca73d05800d8731c"
+};
+const ADMIN_EMAIL='maevemomo@gmail.com';
 
-function loadState(){
-  try{const s=JSON.parse(localStorage.getItem(LS_KEY)); if(s&&s.trips) return s;}catch(e){}
-  return {theme:'forest', trips:[], items:{}, checklist:{}};
+let state=emptyState();
+let cur={tripId:null, tab:'sched', mode:'edit'};
+let cloud=false, db=null, auth=null, currentUser=null, isAdmin=false;
+let wsRef=null, unsub=null, lastPushed='', applyingRemote=false, appStarted=false, saveTimer=null, pendingRemote=null;
+
+function emptyState(){return {theme:'forest', trips:[], items:{}, checklist:{}};}
+function normalizeState(){
+  if(!state) state=emptyState();
+  if(!state.items) state.items={}; if(!state.checklist) state.checklist={}; state.trips=state.trips||[];
+  state.trips.forEach(t=>{ if(!state.items[t.id]) state.items[t.id]=[]; if(!state.checklist[t.id]) state.checklist[t.id]=blankChecklist(); });
 }
-function save(){ try{localStorage.setItem(LS_KEY,JSON.stringify(state));}catch(e){console.warn(e);} }
+function loadLocal(){
+  try{const s=JSON.parse(localStorage.getItem(LS_KEY)); if(s&&s.trips) return s;}catch(e){}
+  return emptyState();
+}
+function saveLocal(){ try{localStorage.setItem(LS_KEY,JSON.stringify(state));}catch(e){console.warn(e);} }
+function save(){
+  if(applyingRemote) return;
+  if(cloud){ clearTimeout(saveTimer); saveTimer=setTimeout(cloudSave,400); }
+  else saveLocal();
+}
+function cloudSave(){
+  if(!wsRef) return;
+  lastPushed=JSON.stringify(state);
+  wsRef.set({state:JSON.parse(lastPushed), updatedAt:firebase.firestore.FieldValue.serverTimestamp(), updatedBy:currentUser?currentUser.email:''})
+    .catch(e=>toast('雲端儲存失敗：'+(e.code||e.message)));
+}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
 
 /* ================= 主題 ================= */
@@ -621,7 +689,10 @@ function delChk(cat,i){ const cl=ensureCL(); cl[cat].splice(i,1); save(); render
 
 /* ================= Modal / Toast 基礎 ================= */
 function openModal(html){document.getElementById('modal').innerHTML=html;document.getElementById('overlay').classList.add('show');}
-function closeModal(){document.getElementById('overlay').classList.remove('show');}
+function closeModal(){
+  document.getElementById('overlay').classList.remove('show');
+  if(pendingRemote){ applyingRemote=true; state=pendingRemote; normalizeState(); lastPushed=JSON.stringify(state); pendingRemote=null; applyingRemote=false; rerenderCurrent(); }
+}
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeModal();});
 function confirmModal(title,msg,onYes){
   openModal(`<div class="modal-head"><h2>${title}</h2><button class="close" onclick="closeModal()">×</button></div>
@@ -632,7 +703,16 @@ function confirmModal(title,msg,onYes){
 }
 let toastT;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),1800);}
-function saveNow(){save();toast('✓ 已儲存到本機（Phase 2 將上雲同步）');}
+function saveNow(){
+  if(cloud){ cloudSave(); saveVersion(); toast('☁ 已儲存並同步到雲端'); }
+  else { saveLocal(); toast('✓ 已儲存到本機'); }
+}
+function saveVersion(){
+  if(!db||!currentUser) return;
+  db.collection('workspace').doc('data').collection('versions').add({
+    state:JSON.parse(JSON.stringify(state)), savedAt:firebase.firestore.FieldValue.serverTimestamp(), savedBy:currentUser.email
+  }).catch(()=>{});
+}
 function toggleExport(e){e.stopPropagation();document.getElementById('exportDD').classList.toggle('open');}
 document.addEventListener('click',()=>document.getElementById('exportDD')?.classList.remove('open'));
 function exportStub(type){toast(`「匯出${type}」將於 Phase 3 開放`);}
@@ -646,8 +726,114 @@ function fmtDay(d){const dd=new Date(d+'T00:00:00');return `${dd.getMonth()+1}/$
 function dayCount(s,e){ if(!s||!e)return 0; return Math.round((new Date(e)-new Date(s))/864e5)+1; }
 
 /* ================= 啟動 ================= */
-applyTheme(state.theme||'forest');
-renderHome();
+/* ================= Firebase 登入 / 雲端啟動 ================= */
+function showGate(mode){
+  document.getElementById('authGate').hidden=false;
+  document.getElementById('gateLoading').hidden=(mode!=='loading');
+  document.getElementById('gateSignin').hidden=(mode!=='signin');
+  document.getElementById('gateNoaccess').hidden=(mode!=='noaccess');
+}
+function hideGate(){ document.getElementById('authGate').hidden=true; }
+function doSignIn(){
+  const p=new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(p).catch(e=>{ if(e.code!=='auth/popup-closed-by-user'&&e.code!=='auth/cancelled-popup-request') toast('登入失敗：'+(e.code||e.message)); });
+}
+function doSignOut(){ if(auth) auth.signOut(); }
+
+async function onAuth(user){
+  if(!user){ currentUser=null; document.getElementById('userChip').hidden=true; showGate('signin'); return; }
+  currentUser=user; showGate('loading');
+  let allowed=false;
+  try{
+    const acc=await db.collection('config').doc('access').get();
+    if(acc.exists){
+      const d=acc.data();
+      allowed=(user.email===(d.admin||ADMIN_EMAIL))||(Array.isArray(d.allowlist)&&d.allowlist.includes(user.email));
+    } else if(user.email===ADMIN_EMAIL){
+      await db.collection('config').doc('access').set({admin:ADMIN_EMAIL,allowlist:[]}); allowed=true;
+    }
+  }catch(e){ toast('讀取權限失敗：'+(e.code||e.message)); }
+  if(!allowed){ document.getElementById('gateEmail').textContent=user.email; document.getElementById('userChip').hidden=true; showGate('noaccess'); return; }
+  isAdmin=(user.email===ADMIN_EMAIL);
+  document.getElementById('uEmail').textContent=user.email;
+  document.getElementById('uEmail').title=user.email;
+  document.getElementById('adminBtn').hidden=!isAdmin;
+  document.getElementById('userChip').hidden=false;
+  hideGate(); startCloud();
+}
+function startCloud(){
+  wsRef=db.collection('workspace').doc('data');
+  if(unsub) unsub();
+  unsub=wsRef.onSnapshot(snap=>{
+    if(!snap.exists){
+      const local=loadLocal();
+      state=(local.trips&&local.trips.length)?local:emptyState();
+      normalizeState(); cloudSave(); if(!appStarted) bootUI(); return;
+    }
+    const data=snap.data()||{};
+    const incoming=JSON.stringify(data.state||{});
+    if(incoming===lastPushed){ if(!appStarted) bootUI(); return; }               // 自己寫的回音
+    if(document.getElementById('overlay').classList.contains('show')){ pendingRemote=data.state||emptyState(); if(!appStarted) bootUI(); return; } // 編輯中先擱置
+    applyingRemote=true; state=data.state||emptyState(); normalizeState(); lastPushed=incoming; applyingRemote=false;
+    if(!appStarted) bootUI(); else rerenderCurrent();
+  }, err=>toast('雲端連線失敗：'+(err.code||err.message)));
+}
+function bootUI(){ appStarted=true; normalizeState(); applyTheme(state.theme||'forest'); if(cur.tripId) rerenderCurrent(); else renderHome(); }
+function rerenderCurrent(){
+  applyTheme(state.theme||'forest');
+  if(cur.tripId){
+    const t=state.trips.find(x=>x.id===cur.tripId);
+    if(!t){ goHome(); return; }
+    document.getElementById('tripName').textContent=t.name;
+    document.getElementById('tripDate').textContent=`${fmtRange(t.startDate,t.endDate)} · ${dayCount(t.startDate,t.endDate)} 天`;
+    if(cur.tab==='sched') renderSched(); else renderChecklist();
+  } else renderHome();
+}
+
+/* ================= 管理權限（僅管理員） ================= */
+async function openAdmin(){
+  if(!isAdmin) return;
+  let d={admin:ADMIN_EMAIL,allowlist:[]};
+  try{ const acc=await db.collection('config').doc('access').get(); if(acc.exists) d=acc.data(); }catch(e){}
+  const list=(d.allowlist||[]);
+  const rows=list.length?list.map(e=>`<div class="al-row"><span>${esc(e)}</span><button class="btn danger sm" onclick="removeAllow('${esc(e)}')">移除</button></div>`).join('')
+                        :'<div style="color:var(--muted);font-size:13px;padding:8px 0">尚無授權團員</div>';
+  openModal(`
+    <div class="modal-head"><div><h2>👥 管理權限</h2><div class="sub">管理員：${esc(d.admin||ADMIN_EMAIL)}</div></div><button class="close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div class="field"><label>新增團員 Gmail（加入後對方用自己 Google 登入即可編輯）</label>
+        <div style="display:flex;gap:8px"><input id="al_email" type="email" placeholder="teammate@gmail.com" style="flex:1"><button class="btn primary" onclick="addAllow()">新增</button></div>
+      </div>
+      <div><div style="font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:4px">已授權團員</div>${rows}</div>
+      <div class="ph-note">把網址 <b>maeve-creator.github.io/trip-genie</b> 貼給團員即可；他們用自己的 Google 登入，只要在清單內就能編輯。</div>
+    </div>
+    <div class="modal-foot"><div class="spacer"></div><button class="btn primary" onclick="closeModal()">完成</button></div>`);
+  setTimeout(()=>document.getElementById('al_email')?.focus(),50);
+}
+function addAllow(){
+  const email=(document.getElementById('al_email').value||'').trim().toLowerCase();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ toast('請輸入正確的 Email'); return; }
+  db.collection('config').doc('access').set({admin:ADMIN_EMAIL,allowlist:firebase.firestore.FieldValue.arrayUnion(email)},{merge:true})
+    .then(()=>{ toast('已新增 '+email); openAdmin(); }).catch(e=>toast('新增失敗：'+(e.code||e.message)));
+}
+function removeAllow(email){
+  db.collection('config').doc('access').set({allowlist:firebase.firestore.FieldValue.arrayRemove(email)},{merge:true})
+    .then(()=>{ toast('已移除 '+email); openAdmin(); }).catch(e=>toast('移除失敗：'+(e.code||e.message)));
+}
+
+/* ================= 啟動 ================= */
+function initApp(){
+  if(window.firebase&&FB_CONFIG.apiKey){
+    try{
+      firebase.initializeApp(FB_CONFIG);
+      auth=firebase.auth(); db=firebase.firestore(); cloud=true;
+      auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
+      showGate('loading'); auth.onAuthStateChanged(onAuth); return;
+    }catch(e){ console.warn('Firebase init 失敗，改用本機模式',e); }
+  }
+  cloud=false; state=loadLocal(); normalizeState(); applyTheme(state.theme||'forest'); renderHome();
+}
+initApp();
 </script>
 </body>
 </html>
