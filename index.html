@@ -2,8 +2,17 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Trip Genie</title>
+<!-- ===== PWA：加到主畫面像獨立 App ===== -->
+<meta name="theme-color" content="#2C6E49" id="metaTheme">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Trip Genie">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&display=swap" rel="stylesheet">
@@ -213,6 +222,61 @@ input,textarea,select{font-family:inherit}
 .al-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
 .al-row span{flex:1;overflow:hidden;text-overflow:ellipsis}
 .al-admin{background:var(--primary-soft);color:var(--primary);font-size:11px;font-weight:800;padding:2px 8px;border-radius:6px;margin-left:6px}
+
+/* ============ 手機版 RWD ============ */
+/* iOS PWA 安全區：頂欄避開瀏海、底部避開 home indicator */
+.topbar{padding-top:calc(12px + env(safe-area-inset-top));padding-left:calc(22px + env(safe-area-inset-left));padding-right:calc(22px + env(safe-area-inset-right))}
+@media (max-width:640px){
+  .topbar{padding:8px 14px;padding-top:calc(8px + env(safe-area-inset-top));gap:8px;flex-wrap:nowrap}
+  .brand{font-size:21px;letter-spacing:.5px}
+  .theme-switch{gap:2px;padding:3px}
+  .theme-btn{padding:7px 8px}
+  .theme-btn .tlabel{display:none}                   /* 只留色點，省空間 */
+  .theme-btn .dot{width:15px;height:15px}
+  .user-chip{gap:5px}
+  .user-chip .uemail{display:none}                   /* email 太長，手機隱藏 */
+  #adminBtn .btn-label{display:none}                  /* 只留 👥，省空間 */
+  .topbar .btn{white-space:nowrap}                    /* 防「登出」被壓成直排 */
+
+  .wrap{padding:20px 14px calc(50px + env(safe-area-inset-bottom))}
+  .page-title{font-size:22px}
+  .page-sub{margin-bottom:18px}
+  .card-grid{grid-template-columns:1fr;gap:14px}
+  .trip-card .acts{opacity:1}                         /* 手機無 hover，編輯/刪除常駐 */
+
+  /* 行程內頁頂列：名稱撐滿第一行，工具列自然折到第二行 */
+  .trip-head{top:calc(41px + env(safe-area-inset-top));padding:10px 12px;gap:8px;flex-wrap:wrap}
+  .trip-head .btn.ghost{padding:8px 9px}
+  .trip-head > div:not(.tabs):not(.mode-switch):not(.dropdown):not(.spacer){flex:1 1 auto;min-width:0}
+  .trip-head .tt{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .trip-head .td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .trip-head .spacer{display:none}
+  .tabs,.mode-switch{padding:3px}
+  .tab{padding:8px 12px;font-size:13px}
+  .mode-btn{padding:8px 11px}
+  .trip-head .btn{padding:8px 11px;font-size:13px}
+
+  .sched-scroll{padding:14px 10px calc(50px + env(safe-area-inset-bottom))}
+  .seg-label{min-width:56px;padding:10px 6px;font-size:12px}
+  .corner .dh-date{font-size:11px}
+
+  .chk-wrap{padding:18px 14px calc(50px + env(safe-area-inset-bottom))}
+  .chk-grid{grid-template-columns:1fr;gap:14px}
+
+  .overlay{padding:14px 10px}
+  .modal{max-width:none}
+  .modal-body{max-height:68vh}
+  .row2{grid-template-columns:1fr}                    /* 表單欄位改單欄，好按 */
+  .modal-foot{flex-wrap:wrap;gap:8px}
+  .modal-foot .spacer{display:none}
+  .modal-foot .btn{flex:1 1 auto;justify-content:center;min-height:44px}
+
+  /* 觸控目標加大 */
+  .btn{min-height:40px}
+  .mini-btn{width:34px;height:34px;font-size:16px}
+  .chk-item input[type=checkbox]{width:20px;height:20px}
+  .chk-item .x{opacity:1}
+}
 </style>
 </head>
 <body data-theme="forest">
@@ -239,12 +303,12 @@ input,textarea,select{font-family:inherit}
   <div class="brand"><span>Trip Genie</span></div>
   <div class="spacer"></div>
   <div class="theme-switch" id="themeSwitch">
-    <button class="theme-btn active" data-t="forest"><span class="dot"></span>森林</button>
-    <button class="theme-btn" data-t="ocean"><span class="dot"></span>海洋</button>
-    <button class="theme-btn" data-t="city"><span class="dot"></span>城市</button>
+    <button class="theme-btn active" data-t="forest"><span class="dot"></span><span class="tlabel">森林</span></button>
+    <button class="theme-btn" data-t="ocean"><span class="dot"></span><span class="tlabel">海洋</span></button>
+    <button class="theme-btn" data-t="city"><span class="dot"></span><span class="tlabel">城市</span></button>
   </div>
   <div class="user-chip" id="userChip" hidden>
-    <button class="btn sm" id="adminBtn" onclick="openAdmin()" hidden>👥 App 成員</button>
+    <button class="btn sm" id="adminBtn" onclick="openAdmin()" hidden>👥<span class="btn-label"> App 成員</span></button>
     <span class="uemail" id="uEmail" title=""></span>
     <button class="btn ghost sm" onclick="doSignOut()">登出</button>
   </div>
@@ -365,9 +429,11 @@ function deleteTripDoc(id){
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
 
 /* ================= 主題 ================= */
+const THEME_COLOR={forest:'#2C6E49',ocean:'#2A6E96',city:'#2F5D8A'};
 function applyTheme(t){
   state.theme=t; document.body.setAttribute('data-theme',t);
   document.querySelectorAll('#themeSwitch .theme-btn').forEach(b=>b.classList.toggle('active',b.dataset.t===t));
+  const mt=document.getElementById('metaTheme'); if(mt&&THEME_COLOR[t]) mt.setAttribute('content',THEME_COLOR[t]);
   save();
 }
 document.getElementById('themeSwitch').addEventListener('click',e=>{
@@ -495,7 +561,8 @@ function renderSched(){
   const days=tripDays(t);
   const pane=document.getElementById('schedPane');
   const grid=document.createElement('div'); grid.className='sched';
-  grid.style.gridTemplateColumns=`76px repeat(${days.length}, minmax(190px,1fr))`;
+  const narrow=window.innerWidth<=640;
+  grid.style.gridTemplateColumns=`${narrow?56:76}px repeat(${days.length}, minmax(${narrow?152:190}px,1fr))`;
   grid.style.gridTemplateRows=`auto repeat(${SEGMENTS.length}, auto)`;
   // 表頭
   const corner=document.createElement('div'); corner.className='corner day-head';
@@ -903,6 +970,13 @@ function initApp(){
   cloud=false; state=loadLocal(); normalizeState(); applyTheme(state.theme||'forest'); renderHome();
 }
 initApp();
+
+/* ================= PWA Service Worker 註冊 ================= */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW 註冊失敗',e));
+  });
+}
 </script>
 </body>
 </html>
