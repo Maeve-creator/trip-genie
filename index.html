@@ -1188,11 +1188,14 @@ function exportPWAGuide(){
   const ua=navigator.userAgent||'';
   const isIOS=/iPhone|iPad|iPod/i.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1);
   const isAndroid=/Android/i.test(ua);
+  // iOS 系統「分享」圖示（方框開口＋上箭頭），用系統藍呈現，貼近實機
+  const iosShare='<svg viewBox="0 0 50 50" width="15" height="17" style="vertical-align:-3px" aria-hidden="true"><g fill="none" stroke="#007AFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M25 5 L25 31"/><path d="M16 13 L25 5 L34 13"/><path d="M16 20 L11 20 Q7 20 7 24 L7 42 Q7 46 11 46 L39 46 Q43 46 43 42 L43 24 Q43 20 39 20 L34 20"/></g></svg>';
   let steps;
   if(isIOS){
     steps=['用 <b>Safari</b> 開啟本網站（勿用 LINE／FB 內建瀏覽器）',
-      '點畫面下方的<b>分享鈕</b> <span style="font-size:16px">⬆️</span>',
-      '下滑選擇 <b>「加入主畫面」</b>',
+      '點畫面<b>最右下方</b>的「<b>⋯ 更多</b>」按鈕',
+      '在選單中點選 <b>「分享」</b> '+iosShare,
+      '下方列表往下找，選擇 <b>「加入主畫面」</b>',
       '按「加入」→ 桌面出現 <b>Trip Genie</b> 圖示，開啟即全螢幕、像原生 App'];
   }else if(isAndroid){
     steps=['用 <b>Chrome</b> 開啟本網站',
@@ -1211,7 +1214,6 @@ function exportPWAGuide(){
     <div class="modal-head"><div><h2>📱 存成手機 App</h2><div class="sub">加到主畫面，離線可開、像原生 App</div></div>
       <button class="close" onclick="closeModal()">×</button></div>
     <div class="modal-body">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.6">Trip Genie 已是 <b>PWA</b>（漸進式網頁 App）。依下列步驟加到主畫面，即可像 App 一樣開啟、保留登入、離線檢視看過的行程。</div>
       ${li}
       <div style="margin-top:14px;padding:10px 12px;background:var(--bg);border-radius:10px;font-size:12.5px;color:var(--muted);line-height:1.6">
         目前網址：<a href="https://trip-genie-cccb2.firebaseapp.com/" target="_blank" rel="noopener" style="color:var(--primary);font-weight:600">trip-genie-cccb2.firebaseapp.com</a><br>
