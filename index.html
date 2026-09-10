@@ -698,7 +698,7 @@ function setupResize(box,it){
 /* ================= Places API (New)：地點搜尋 + 代表圖 ================= */
 const PLACES_BASE='https://places.googleapis.com/v1';
 const PHOTO_TTL=30*864e5;          // 代表圖快照 30 天後才刷新（合規＋省配額）
-const PHOTO_MAXW=800;              // 大圖寬度（壓縮後存 base64）
+const PHOTO_MAXW=640;              // 大圖寬度（壓縮後存 base64；詳情頁顯示區 <480px，640 綽綽有餘又省空間）
 let curEditPlace=null;             // 編輯視窗當前選定地點 {placeId, photoName}
 let acSession=null, acTimer=null, acActiveIdx=-1, acCurrent=[];
 
