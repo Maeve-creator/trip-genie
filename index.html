@@ -46,15 +46,16 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{
   font-family:"PingFang TC","Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;
-  background:var(--bg); color:var(--text); min-height:100vh; transition:background .3s;
+  background:var(--bg); color:var(--text); transition:background .3s;
   -webkit-font-smoothing:antialiased;
+  height:100vh; height:100dvh; overflow:hidden; display:flex; flex-direction:column;
 }
 button{font-family:inherit;cursor:pointer}
 input,textarea,select{font-family:inherit}
 
 /* ============ 頂欄 ============ */
 .topbar{
-  position:sticky;top:0;z-index:50;background:var(--surface);border-bottom:1px solid var(--line);
+  position:relative;z-index:50;flex:none;background:var(--surface);border-bottom:1px solid var(--line);
   padding:12px 22px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow-sm);
 }
 .brand{font-family:"Dela Gothic One",Georgia,serif;font-weight:400;font-size:30px;line-height:1;color:var(--primary);letter-spacing:1px;display:flex;align-items:center;white-space:nowrap;padding:2px 0}
@@ -80,6 +81,8 @@ input,textarea,select{font-family:inherit}
 
 /* ============ 首頁卡片牆 ============ */
 .wrap{max-width:1180px;margin:0 auto;padding:30px 24px 60px}
+#homeView{flex:1;overflow-y:auto;min-height:0;width:100%}
+#tripView{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
 .page-title{font-size:26px;font-weight:800;margin-bottom:4px}
 .page-sub{color:var(--muted);font-size:14px;margin-bottom:26px}
 .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
@@ -110,7 +113,7 @@ input,textarea,select{font-family:inherit}
 .empty-hint{color:var(--muted);font-size:14px;padding:40px 0;text-align:center}
 
 /* ============ 行程內頁 ============ */
-.trip-head{background:var(--surface);border-bottom:1px solid var(--line);padding:12px 22px;display:flex;align-items:center;gap:14px;position:sticky;top:55px;z-index:40;box-shadow:var(--shadow-sm)}
+.trip-head{background:var(--surface);border-bottom:1px solid var(--line);padding:12px 22px;display:flex;align-items:center;gap:14px;flex:none;position:relative;z-index:40;box-shadow:var(--shadow-sm);flex-wrap:wrap}
 .trip-head .tt{font-size:18px;font-weight:800}
 .trip-head .td{font-size:13px;color:var(--muted)}
 .tabs{display:flex;gap:4px;background:var(--bg);padding:4px;border-radius:11px;border:1px solid var(--line)}
@@ -127,11 +130,11 @@ input,textarea,select{font-family:inherit}
 .menu-item .tag{margin-left:auto;font-size:10px;color:var(--muted);background:var(--bg);padding:2px 6px;border-radius:6px}
 
 /* ============ 時間軸 grid ============ */
-.sched-scroll{overflow-x:auto;padding:18px 22px 60px}
-.sched{display:grid;min-width:max-content;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface)}
+.sched-scroll{overflow:auto;flex:1;min-height:0;padding:18px 22px 60px}
+.sched{display:grid;min-width:max-content;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
 .seg-label,.day-head,.cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
-.corner{background:var(--primary-soft);border-right:1px solid var(--line);border-bottom:1px solid var(--line);position:sticky;left:0;z-index:3}
-.day-head{background:var(--primary-soft);padding:10px 12px;text-align:center;position:sticky;top:0}
+.corner{background:var(--primary-soft);border-right:1px solid var(--line);border-bottom:1px solid var(--line);position:sticky;left:0;top:0;z-index:4}
+.day-head{background:var(--primary-soft);padding:10px 12px;text-align:center;position:sticky;top:0;z-index:2}
 .day-head .dh-date{font-size:14px;font-weight:800;color:var(--primary)}
 .day-head .dh-loc{font-size:11px;color:var(--muted);margin-top:2px;min-height:13px}
 .seg-label{background:var(--bg);padding:12px 10px;font-size:13px;font-weight:800;color:var(--text);position:sticky;left:0;z-index:2;display:flex;align-items:center;justify-content:center;text-align:center;min-width:76px}
@@ -165,6 +168,7 @@ input,textarea,select{font-family:inherit}
 
 /* ============ Checklist ============ */
 .chk-wrap{max-width:1000px;margin:0 auto;padding:24px 22px 60px}
+#chkPane{flex:1;overflow-y:auto;min-height:0;width:100%}
 .chk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
 .chk-cat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow-sm)}
 .chk-cat h3{font-size:15px;color:var(--primary);margin-bottom:12px;padding-bottom:8px;border-bottom:1px dashed var(--line);display:flex;align-items:center;gap:7px}
@@ -260,7 +264,7 @@ input,textarea,select{font-family:inherit}
   .trip-card .acts{opacity:1}                         /* 手機無 hover，編輯/刪除常駐 */
 
   /* 行程內頁頂列：名稱撐滿第一行，工具列自然折到第二行 */
-  .trip-head{top:calc(41px + env(safe-area-inset-top));padding:10px 12px;gap:8px;flex-wrap:wrap}
+  .trip-head{padding:10px 12px;gap:8px;flex-wrap:wrap}
   .trip-head .btn.ghost{padding:8px 9px}
   .trip-head > div:not(.tabs):not(.mode-switch):not(.dropdown):not(.spacer){flex:1 1 auto;min-width:0}
   .trip-head .tt{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -350,13 +354,13 @@ input,textarea,select{font-family:inherit}
       <button class="tab" data-tab="chk" onclick="switchTab('chk')">✓ Checklist</button>
     </div>
     <div class="mode-switch" id="modeSwitch">
-      <button class="mode-btn active" data-m="edit" onclick="setMode('edit')">編輯</button>
-      <button class="mode-btn" data-m="view" onclick="setMode('view')">閱覽</button>
+      <button class="mode-btn active" data-m="edit" onclick="setMode('edit')" title="編輯">✏️</button>
+      <button class="mode-btn" data-m="view" onclick="setMode('view')" title="閱覽">👁️</button>
     </div>
-    <button class="btn" id="shareBtn" onclick="openShare()" hidden>🔗 分享</button>
-    <button class="btn" onclick="saveNow()">💾 儲存行程</button>
+    <button class="btn" id="shareBtn" onclick="openShare()" title="分享" hidden>🔗</button>
+    <button class="btn" onclick="saveNow()" title="儲存行程">💾</button>
     <div class="dropdown" id="exportDD">
-      <button class="btn" onclick="toggleExport(event)">⬇ 匯出行程表 ▾</button>
+      <button class="btn" onclick="toggleExport(event)" title="匯出行程表">⬇▾</button>
       <div class="menu">
         <div class="menu-item" onclick="exportStub('HTML')">📄 匯出 HTML<span class="tag">Phase3</span></div>
         <div class="menu-item" onclick="exportStub('PDF')">🖨 匯出 PDF<span class="tag">Phase3</span></div>
@@ -579,12 +583,12 @@ function renderSched(){
   const pane=document.getElementById('schedPane');
   const grid=document.createElement('div'); grid.className='sched';
   const narrow=window.innerWidth<=640;
-  grid.style.gridTemplateColumns=`${narrow?56:76}px repeat(${days.length}, minmax(${narrow?152:190}px,1fr))`;
+  grid.style.gridTemplateColumns=`${narrow?56:76}px repeat(${days.length}, minmax(${narrow?203:253}px,1fr))`;
   grid.style.gridTemplateRows=`auto repeat(${SEGMENTS.length}, auto)`;
   // 表頭
-  const corner=document.createElement('div'); corner.className='corner day-head';
+  const corner=document.createElement('div'); corner.className='corner';
   corner.style.gridColumn='1'; corner.style.gridRow='1';
-  corner.innerHTML=`<div class="dh-date" style="font-size:12px">時間段</div>`; grid.appendChild(corner);
+  corner.innerHTML=''; grid.appendChild(corner);
   days.forEach((dt,di)=>{
     const dd=new Date(dt+'T00:00:00');
     const h=document.createElement('div'); h.className='day-head';
@@ -700,6 +704,7 @@ const PLACES_BASE='https://places.googleapis.com/v1';
 const PHOTO_TTL=30*864e5;          // 代表圖快照 30 天後才刷新（合規＋省配額）
 const PHOTO_MAXW=640;              // 大圖寬度（壓縮後存 base64；詳情頁顯示區 <480px，640 綽綽有餘又省空間）
 let curEditPlace=null;             // 編輯視窗當前選定地點 {placeId, photoName}
+const photoMemCache={};            // itemId → dataUrl（同一次 App 內記憶體快取，再開同地點免讀 Firestore、免閃「載入中」）
 let acSession=null, acTimer=null, acActiveIdx=-1, acCurrent=[];
 
 function newSession(){ return uid()+uid(); }
@@ -751,20 +756,23 @@ async function savePhotoDoc(tripId,itemId,dataUrl,placeId){
   try{ await photoRef(tripId,itemId).set({dataUrl, placeId, fetchedAt:firebase.firestore.FieldValue.serverTimestamp()}); }catch(e){ console.warn('savePhoto',e); }
 }
 async function deletePhotoDoc(tripId,itemId){
+  delete photoMemCache[itemId];
   if(!cloud) return;
   try{ await photoRef(tripId,itemId).delete(); }catch(e){}
 }
 // 回傳可顯示的大圖 dataUrl：優先讀 30 天內快照；過期/無則抓一次並落地
 async function ensurePhoto(tripId,item,force){
   if(!item||!item.placeId||!item.photoName) return null;
+  if(!force && photoMemCache[item.id]) return photoMemCache[item.id];   // 記憶體命中，連 Firestore 都免
   const existing=await getPhotoDoc(tripId,item.id);
   if(!force && existing && existing.dataUrl && existing.placeId===item.placeId && existing.fetchedAt){
     const age=Date.now()-existing.fetchedAt.toMillis();
-    if(age<PHOTO_TTL) return existing.dataUrl;   // 命中快照，0 API
+    if(age<PHOTO_TTL){ photoMemCache[item.id]=existing.dataUrl; return existing.dataUrl; }   // 命中 Firestore 快照，0 API
   }
   try{
-    const dataUrl=await fetchPhotoDataUrl(item.photoName);
+    const dataUrl=await fetchPhotoDataUrl(item.photoName);   // 首次或過期才真正呼叫 Google
     await savePhotoDoc(tripId,item.id,dataUrl,item.placeId);
+    photoMemCache[item.id]=dataUrl;
     return dataUrl;
   }catch(e){ console.warn('ensurePhoto fetch fail',e); return existing?existing.dataUrl:null; }
 }
@@ -903,8 +911,11 @@ function viewItem(id){
   add('營業時間',timeStr);
   add('地圖',it.mapUrl,true);
   const hasPlace=it.placeId&&it.photoName;
+  const cachedPhoto = hasPlace ? photoMemCache[it.id] : null;
   const photoBlock = hasPlace
-    ? `<div class="pv-photo" id="pvPhoto"><div class="pv-load">載入代表圖…</div></div>`
+    ? (cachedPhoto
+        ? `<div class="pv-photo"><img src="${cachedPhoto}" alt="${esc(it.title)}"></div>`
+        : `<div class="pv-photo" id="pvPhoto"><div class="pv-load">載入代表圖…</div></div>`)
     : `<div class="ph-note">🖼️ 此地點尚無代表圖。用編輯視窗的「🔍 搜尋 Google 地點」選定地點，即可自動顯示代表圖。</div>`;
   openModal(`
     <div class="modal-head"><div><h2>${esc(it.title)||'（未命名地點）'}</h2><div class="sub">${fmtDay(it.dayDate)} · ${it.segment}</div></div>
@@ -914,7 +925,7 @@ function viewItem(id){
       ${blocks||'<div style="color:var(--muted);font-size:14px">（尚未填寫內容）</div>'}
     </div>
     <div class="modal-foot"><div class="spacer"></div><button class="btn primary" onclick="closeModal()">關閉</button></div>`);
-  if(hasPlace){
+  if(hasPlace && !cachedPhoto){
     ensurePhoto(cur.tripId,it).then(dataUrl=>{
       const box=document.getElementById('pvPhoto'); if(!box)return;   // modal 可能已關
       box.innerHTML = dataUrl
