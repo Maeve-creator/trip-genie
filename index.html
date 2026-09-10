@@ -361,8 +361,8 @@ input,textarea,select{font-family:inherit}
       <button class="tab" data-tab="chk" onclick="switchTab('chk')">✓ Checklist</button>
     </div>
     <div class="mode-switch" id="modeSwitch">
-      <button class="mode-btn active" data-m="edit" onclick="setMode('edit')" title="編輯">✏️</button>
-      <button class="mode-btn" data-m="view" onclick="setMode('view')" title="閱覽">👁️</button>
+      <button class="mode-btn" data-m="edit" onclick="setMode('edit')" title="編輯">✏️</button>
+      <button class="mode-btn active" data-m="view" onclick="setMode('view')" title="閱覽">👁️</button>
     </div>
     <button class="btn" id="shareBtn" onclick="openShare()" title="分享" hidden>🔗</button>
     <button class="btn" id="saveBtn" onclick="saveNow()" title="儲存行程">💾</button>
@@ -547,7 +547,7 @@ function blankChecklist(){const o={};CHK_CATS.forEach(c=>o[c]=[]);return o;}
 
 /* ================= 開行程內頁 ================= */
 function openTrip(id){
-  cur.tripId=id; cur.tab='sched'; cur.mode='edit';
+  cur.tripId=id; cur.tab='sched'; cur.mode='view';
   const t=state.trips.find(x=>x.id===id);
   if(t.theme) applyTheme(t.theme, false);
   if(!state.items[id]) state.items[id]=[];
@@ -560,7 +560,7 @@ function openTrip(id){
   document.getElementById('shareBtn').hidden=!owner;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='sched'));
   document.getElementById('schedPane').hidden=false; document.getElementById('chkPane').hidden=true;
-  setMode('edit');
+  setMode('view');
   renderSched();
 }
 function goHome(){cur.tripId=null;document.getElementById('tripView').hidden=true;document.getElementById('homeView').hidden=false;renderHome();}
