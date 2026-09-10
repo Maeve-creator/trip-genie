@@ -7,8 +7,9 @@
 <!-- ===== PWA：加到主畫面像獨立 App ===== -->
 <meta name="theme-color" content="#2C6E49" id="metaTheme">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
+<link rel="icon" type="image/png" href="icon-192.png?v=2">
+<link rel="shortcut icon" type="image/png" href="icon-192.png?v=2">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -1153,14 +1154,32 @@ async function prepExport(){
   return {t,items,checklist,photos};
 }
 
+function isMobileUA(){
+  const ua=navigator.userAgent||'';
+  return /iPhone|iPad|iPod|Android/i.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1);
+}
+
 async function exportHTML(){
   toast('產生 HTML 快照中…');
   try{
     const d=await prepExport(); if(!d) return;
     const html=buildSnapshotHTML(d.t,d.items,d.checklist,d.photos,false);
+    const fname=exportFileName(d.t,'html');
+    // 手機：優先用系統分享（存到「檔案」／Mail／AirDrop…），避開 iOS 對 blob 下載跳「用 App 開啟」的坑
+    if(isMobileUA() && navigator.canShare){
+      try{
+        const file=new File([html],fname,{type:'text/html'});
+        if(navigator.canShare({files:[file]})){
+          await navigator.share({files:[file], title:(d.t.name||'行程表')});
+          toast('✓ 已開啟分享（可存到「檔案」或寄送）');
+          return;
+        }
+      }catch(e){ if(e && e.name==='AbortError'){ return; } /* 使用者取消分享 */ }
+    }
+    // 桌機（或不支援檔案分享）：直接下載
     const blob=new Blob([html],{type:'text/html;charset=utf-8'});
     const url=URL.createObjectURL(blob);
-    const a=document.createElement('a'); a.href=url; a.download=exportFileName(d.t,'html');
+    const a=document.createElement('a'); a.href=url; a.download=fname;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),5000);
     toast('✓ 已匯出 HTML（可離線開啟／寄送）');
@@ -1168,20 +1187,21 @@ async function exportHTML(){
 }
 
 async function exportPDF(){
-  // 先同步開視窗（保住 user gesture，避免 await 後被彈窗攔截）
-  const w=window.open('','_blank');
-  if(!w){ toast('請允許彈出視窗，才能列印 PDF'); return; }
-  try{
-    w.document.write('<!doctype html><meta charset="utf-8"><title>產生中…</title><body style="font-family:sans-serif;padding:40px;color:#555">產生 PDF 快照中，請稍候…</body>');
-  }catch(_){}
   toast('產生 PDF 快照中…');
   try{
-    const d=await prepExport();
-    if(!d){ w.close(); return; }
-    const html=buildSnapshotHTML(d.t,d.items,d.checklist,d.photos,true);
-    w.document.open(); w.document.write(html); w.document.close();
-    toast('✓ 已開啟列印，於對話框選「另存為 PDF」');
-  }catch(e){ try{w.close();}catch(_){}; console.warn('exportPDF',e); toast('匯出 PDF 失敗：'+(e.message||e)); }
+    const d=await prepExport(); if(!d) return;
+    const html=buildSnapshotHTML(d.t,d.items,d.checklist,d.photos,false);
+    // 隱藏 iframe 列印：不開新分頁、不離開 App（修 iOS/PWA 卡在新視窗無法返回）
+    const old=document.getElementById('printFrame'); if(old) old.remove();
+    const f=document.createElement('iframe'); f.id='printFrame';
+    f.style.cssText='position:fixed;left:-10000px;top:0;width:800px;height:1200px;border:0';
+    document.body.appendChild(f);
+    const fd=f.contentWindow.document; fd.open(); fd.write(html); fd.close();
+    const go=()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(err){ console.warn('print',err); }
+      setTimeout(()=>{ try{ f.remove(); }catch(_){} }, 60000); };
+    if(fd.readyState==='complete') setTimeout(go,350); else { f.onload=()=>setTimeout(go,350); setTimeout(go,1200); }
+    toast('✓ 已開啟列印，選「另存為 PDF」或印表機');
+  }catch(e){ console.warn('exportPDF',e); toast('匯出 PDF 失敗：'+(e.message||e)); }
 }
 
 function exportPWAGuide(){
