@@ -205,6 +205,21 @@ input,textarea,select{font-family:inherit}
 .view-block a{color:var(--primary)}
 .ph-note{background:var(--accent-soft);border:1px dashed var(--accent);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--text)}
 
+/* ===== Places 地點搜尋 + 代表圖 ===== */
+.place-search{position:relative}
+.place-picked{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--primary);background:var(--primary-soft);border-radius:9px;padding:7px 10px;margin-top:6px}
+.place-picked .pp-clear{margin-left:auto;border:none;background:transparent;color:var(--muted);font-size:15px;cursor:pointer;padding:0 4px}
+.ac-list{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);z-index:120;max-height:236px;overflow-y:auto}
+.ac-item{padding:9px 12px;font-size:13.5px;cursor:pointer;border-bottom:1px solid var(--line)}
+.ac-item:last-child{border-bottom:none}
+.ac-item:hover,.ac-item.active{background:var(--primary-soft)}
+.ac-item .ac-main{font-weight:700}
+.ac-item .ac-sub{font-size:11.5px;color:var(--muted);margin-top:1px}
+.ac-empty{padding:10px 12px;font-size:12.5px;color:var(--muted)}
+.pv-photo{width:100%;border-radius:12px;overflow:hidden;background:var(--bg);border:1px solid var(--line);margin-bottom:6px;min-height:130px;display:flex;align-items:center;justify-content:center}
+.pv-photo img{width:100%;display:block}
+.pv-photo .pv-load{color:var(--muted);font-size:13px;padding:34px 0;text-align:center;line-height:1.5}
+
 /* Toast */
 .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:11px 20px;border-radius:12px;font-size:13.5px;font-weight:600;box-shadow:var(--shadow);opacity:0;transition:.25s;z-index:200;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -378,6 +393,8 @@ const FB_CONFIG={
   appId:"1:519815790357:web:85203fca73d05800d8731c"
 };
 const ADMIN_EMAIL='maevemomo@gmail.com';
+// Google Maps Platform 金鑰（前端公開，靠 Google Cloud 的 HTTP referrer 限制 + API 限制保護）
+const MAPS_API_KEY='AIzaSyCn9X0U36Q6VzRwjbvi4iGEr84CJKun-gU';
 
 let state=emptyState();
 let cur={tripId:null, tab:'sched', mode:'edit'};
@@ -678,11 +695,135 @@ function setupResize(box,it){
   });
 }
 
+/* ================= Places API (New)：地點搜尋 + 代表圖 ================= */
+const PLACES_BASE='https://places.googleapis.com/v1';
+const PHOTO_TTL=30*864e5;          // 代表圖快照 30 天後才刷新（合規＋省配額）
+const PHOTO_MAXW=800;              // 大圖寬度（壓縮後存 base64）
+let curEditPlace=null;             // 編輯視窗當前選定地點 {placeId, photoName}
+let acSession=null, acTimer=null, acActiveIdx=-1, acCurrent=[];
+
+function newSession(){ return uid()+uid(); }
+async function placesAutocomplete(input){
+  const res=await fetch(PLACES_BASE+'/places:autocomplete',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-Goog-Api-Key':MAPS_API_KEY},
+    body:JSON.stringify({input, languageCode:'zh-TW', regionCode:'TW', sessionToken:acSession})
+  });
+  if(!res.ok) throw new Error('autocomplete '+res.status);
+  const d=await res.json();
+  return (d.suggestions||[]).map(s=>s.placePrediction).filter(Boolean);
+}
+async function placeDetails(placeId){
+  const url=PLACES_BASE+'/places/'+encodeURIComponent(placeId)+'?languageCode=zh-TW'+(acSession?('&sessionToken='+encodeURIComponent(acSession)):'');
+  const res=await fetch(url,{headers:{'X-Goog-Api-Key':MAPS_API_KEY,'X-Goog-FieldMask':'id,displayName,googleMapsUri,formattedAddress,photos'}});
+  if(!res.ok) throw new Error('details '+res.status);
+  return res.json();
+}
+// photoName 例：places/XXX/photos/YYY → 取實際短期 URL 再壓成 jpeg base64
+async function fetchPhotoDataUrl(photoName){
+  const url=PLACES_BASE+'/'+photoName+'/media?maxWidthPx='+PHOTO_MAXW+'&skipHttpRedirect=true&key='+MAPS_API_KEY;
+  const res=await fetch(url); if(!res.ok) throw new Error('photo '+res.status);
+  const d=await res.json();       // {name, photoUri}
+  return imgToJpegDataUrl(d.photoUri, PHOTO_MAXW, 0.6);
+}
+function imgToJpegDataUrl(src,maxW,q){
+  return new Promise((resolve,reject)=>{
+    const img=new Image(); img.crossOrigin='anonymous';
+    img.onload=()=>{
+      const scale=Math.min(1, maxW/(img.naturalWidth||maxW));
+      const w=Math.round((img.naturalWidth||maxW)*scale), h=Math.round((img.naturalHeight||maxW)*scale);
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      try{ resolve(c.toDataURL('image/jpeg',q)); }catch(e){ reject(e); }
+    };
+    img.onerror=()=>reject(new Error('img load fail'));
+    img.src=src;
+  });
+}
+// 代表圖快照：獨立子文件 trips/{tripId}/photos/{itemId}（不塞主文件，避開 1MiB 上限）
+function photoRef(tripId,itemId){ return db.collection('trips').doc(tripId).collection('photos').doc(itemId); }
+async function getPhotoDoc(tripId,itemId){
+  if(!cloud) return null;
+  try{ const s=await photoRef(tripId,itemId).get(); return s.exists?s.data():null; }catch(e){ return null; }
+}
+async function savePhotoDoc(tripId,itemId,dataUrl,placeId){
+  if(!cloud) return;
+  try{ await photoRef(tripId,itemId).set({dataUrl, placeId, fetchedAt:firebase.firestore.FieldValue.serverTimestamp()}); }catch(e){ console.warn('savePhoto',e); }
+}
+async function deletePhotoDoc(tripId,itemId){
+  if(!cloud) return;
+  try{ await photoRef(tripId,itemId).delete(); }catch(e){}
+}
+// 回傳可顯示的大圖 dataUrl：優先讀 30 天內快照；過期/無則抓一次並落地
+async function ensurePhoto(tripId,item,force){
+  if(!item||!item.placeId||!item.photoName) return null;
+  const existing=await getPhotoDoc(tripId,item.id);
+  if(!force && existing && existing.dataUrl && existing.placeId===item.placeId && existing.fetchedAt){
+    const age=Date.now()-existing.fetchedAt.toMillis();
+    if(age<PHOTO_TTL) return existing.dataUrl;   // 命中快照，0 API
+  }
+  try{
+    const dataUrl=await fetchPhotoDataUrl(item.photoName);
+    await savePhotoDoc(tripId,item.id,dataUrl,item.placeId);
+    return dataUrl;
+  }catch(e){ console.warn('ensurePhoto fetch fail',e); return existing?existing.dataUrl:null; }
+}
+
+/* ---- 地點搜尋下拉 UI（editItem 內使用） ---- */
+function acOnInput(){
+  const fp=document.getElementById('f_place'); if(!fp)return;
+  const q=fp.value.trim(); clearTimeout(acTimer);
+  if(q.length<2){ hideAcList(); return; }
+  acTimer=setTimeout(async()=>{
+    try{ const preds=await placesAutocomplete(q); renderAcList(preds); }
+    catch(e){ hideAcList(); const m=''+(e.message||e);
+      if(m.includes('403')) toast('地點搜尋被拒（本機測試不在允許網域，請到線上網站測）');
+      else toast('地點搜尋失敗：'+m); }
+  },300);
+}
+function renderAcList(preds){
+  acCurrent=preds||[]; acActiveIdx=-1;
+  const el=document.getElementById('ac_list'); if(!el)return;
+  el.hidden=false;
+  if(!acCurrent.length){ el.innerHTML='<div class="ac-empty">找不到符合的地點</div>'; return; }
+  el.innerHTML=acCurrent.map((p,i)=>{
+    const main=(p.structuredFormat&&p.structuredFormat.mainText&&p.structuredFormat.mainText.text)||(p.text&&p.text.text)||'';
+    const sub=(p.structuredFormat&&p.structuredFormat.secondaryText&&p.structuredFormat.secondaryText.text)||'';
+    return `<div class="ac-item" onclick="pickPlace(${i})"><div class="ac-main">${esc(main)}</div>${sub?`<div class="ac-sub">${esc(sub)}</div>`:''}</div>`;
+  }).join('');
+}
+function hideAcList(){ const el=document.getElementById('ac_list'); if(el){el.hidden=true;el.innerHTML='';} }
+async function pickPlace(idx){
+  const p=acCurrent[idx]; if(!p)return;
+  hideAcList(); const fp=document.getElementById('f_place'); if(fp) fp.value='';
+  try{
+    const det=await placeDetails(p.placeId);
+    const name=(det.displayName&&det.displayName.text)||(p.text&&p.text.text)||'';
+    const photoName=(det.photos&&det.photos[0]&&det.photos[0].name)||null;
+    curEditPlace={placeId:det.id||p.placeId, photoName, name};
+    const ft=document.getElementById('f_title'); if(ft&&!ft.value.trim()) ft.value=name;
+    const fm=document.getElementById('f_map'); if(fm&&!fm.value.trim()&&det.googleMapsUri) fm.value=det.googleMapsUri;
+    renderPicked(); acSession=newSession();
+    toast(photoName?'已帶入地點與代表圖 ✦':'已帶入地點（此地點無 Google 照片）');
+  }catch(e){ toast('讀取地點失敗：'+(e.message||e)); }
+}
+function renderPicked(){
+  const el=document.getElementById('place_picked'); if(!el)return;
+  if(curEditPlace&&curEditPlace.placeId){
+    el.hidden=false; el.className='place-picked';
+    el.innerHTML=`📍 已選：<b>${esc(curEditPlace.name||'')}</b>${curEditPlace.photoName?' · 含代表圖':' · 無照片'}<button class="pp-clear" title="清除地點" onclick="clearPicked()">×</button>`;
+  } else { el.hidden=true; el.className=''; el.innerHTML=''; }
+}
+function clearPicked(){ curEditPlace=null; renderPicked(); }
+
 /* ================= 行程項目編輯 / 閱覽 ================= */
 function editItem(id,day,seg){
   const items=state.items[cur.tripId];
   const it = id ? items.find(x=>x.id===id) : {title:'',desc:'',hours:'',closedDay:'',mapUrl:'',dayDate:day,segment:seg};
   const isNew=!id;
+  // 地點搜尋狀態初始化（編輯既有 item 時沿用已選地點）
+  curEditPlace = (it.placeId&&it.photoName) ? {placeId:it.placeId, photoName:it.photoName, name:it.title} : (it.placeId?{placeId:it.placeId,photoName:null,name:it.title}:null);
+  acSession=newSession(); acCurrent=[]; acActiveIdx=-1;
   const days=tripDays(state.trips.find(x=>x.id===cur.tripId));
   const dayOpts=days.map(d=>{const dd=new Date(d+'T00:00:00');return `<option value="${d}" ${d===it.dayDate?'selected':''}>${(dd.getMonth()+1)}/${dd.getDate()} (${WD[dd.getDay()]})</option>`}).join('');
   const segOpts=SEGMENTS.map(s=>`<option value="${s}" ${s===it.segment?'selected':''}>${s}</option>`).join('');
@@ -694,13 +835,19 @@ function editItem(id,day,seg){
         <div class="field"><label>日期</label><select id="f_day">${dayOpts}</select></div>
         <div class="field"><label>時間段</label><select id="f_seg">${segOpts}</select></div>
       </div>
+      <div class="field place-search">
+        <label>🔍 搜尋 Google 地點（自動帶入名稱／地圖連結／代表圖）</label>
+        <input id="f_place" placeholder="打字搜尋，例：釜山 甘川洞文化村" autocomplete="off">
+        <div id="ac_list" class="ac-list" hidden></div>
+        <div id="place_picked" hidden></div>
+      </div>
       <div class="field"><label>地點 *</label><input id="f_title" value="${esc(it.title)}" placeholder="例：英姐咖哩麵"></div>
       <div class="field"><label>說明</label><textarea id="f_desc" placeholder="想吃什麼、交通、備註…">${esc(it.desc)}</textarea></div>
       <div class="row2">
         <div class="field"><label>公休日</label><input id="f_closed" value="${esc(it.closedDay)}" placeholder="例：週一休"></div>
         <div class="field"><label>營業時間</label><input id="f_hours" value="${esc(it.hours)}" placeholder="例：06:00-14:00"></div>
       </div>
-      <div class="field"><label>Google 地圖連結</label><input id="f_map" value="${esc(it.mapUrl)}" placeholder="貼上 Google Maps 網址"></div>
+      <div class="field"><label>Google 地圖連結</label><input id="f_map" value="${esc(it.mapUrl)}" placeholder="搜尋地點會自動帶入，或手動貼上"></div>
     </div>
     <div class="modal-foot">
       ${isNew?'':'<button class="btn danger" onclick="deleteItem(\''+id+'\')">🗑 刪除行程</button>'}
@@ -708,7 +855,11 @@ function editItem(id,day,seg){
       <button class="btn ghost" onclick="closeModal()">取消</button>
       <button class="btn primary" onclick="saveItem('${id||''}')">儲存行程</button>
     </div>`);
-  setTimeout(()=>document.getElementById('f_title').focus(),50);
+  setTimeout(()=>{
+    const fp=document.getElementById('f_place');
+    if(fp){ fp.addEventListener('input',acOnInput); fp.focus(); }
+    renderPicked();
+  },50);
 }
 function saveItem(id){
   const items=state.items[cur.tripId];
@@ -716,19 +867,29 @@ function saveItem(id){
   const title=v('f_title');
   if(!title){toast('請輸入地點');return;}
   const day=document.getElementById('f_day').value, seg=document.getElementById('f_seg').value;
-  const data={title,desc:v('f_desc'),closedDay:v('f_closed'),hours:v('f_hours'),mapUrl:v('f_map'),dayDate:day,segment:seg};
+  const placeId=curEditPlace?curEditPlace.placeId:'', photoName=curEditPlace?(curEditPlace.photoName||''):'';
+  const data={title,desc:v('f_desc'),closedDay:v('f_closed'),hours:v('f_hours'),mapUrl:v('f_map'),dayDate:day,segment:seg,placeId,photoName};
+  let savedItem;
   if(id){
     const it=items.find(x=>x.id===id); const segChanged=(it.segment!==seg||it.dayDate!==day);
+    const placeChanged=(it.placeId!==placeId);
     Object.assign(it,data);
     if(segChanged){const cnt=items.filter(x=>x.dayDate===day&&x.segment===seg&&x.id!==id).length;it.orderInSegment=cnt;}
+    if(placeChanged && !placeId) deletePhotoDoc(cur.tripId, id);  // 清除了地點 → 刪舊快照
+    savedItem=it;
   }else{
     const cnt=items.filter(x=>x.dayDate===day&&x.segment===seg).length;
-    items.push({id:uid(),...data,orderInSegment:cnt,spanSegments:1});
+    savedItem={id:uid(),...data,orderInSegment:cnt,spanSegments:1}; items.push(savedItem);
   }
   save(); closeModal(); renderSched(); toast('已儲存');
+  // 背景抓代表圖（首次或地點變更；命中 30 天快照則不呼叫 API）
+  if(savedItem && savedItem.placeId && savedItem.photoName){
+    ensurePhoto(cur.tripId, savedItem).catch(()=>{});
+  }
 }
 function deleteItem(id){
   state.items[cur.tripId]=state.items[cur.tripId].filter(x=>x.id!==id);
+  deletePhotoDoc(cur.tripId, id);   // 一併清代表圖快照
   save(); closeModal(); renderSched(); toast('已刪除');
 }
 function viewItem(id){
@@ -741,14 +902,26 @@ function viewItem(id){
   const timeStr=[it.closedDay,it.hours].filter(Boolean).join('，');
   add('營業時間',timeStr);
   add('地圖',it.mapUrl,true);
+  const hasPlace=it.placeId&&it.photoName;
+  const photoBlock = hasPlace
+    ? `<div class="pv-photo" id="pvPhoto"><div class="pv-load">載入代表圖…</div></div>`
+    : `<div class="ph-note">🖼️ 此地點尚無代表圖。用編輯視窗的「🔍 搜尋 Google 地點」選定地點，即可自動顯示代表圖。</div>`;
   openModal(`
     <div class="modal-head"><div><h2>${esc(it.title)||'（未命名地點）'}</h2><div class="sub">${fmtDay(it.dayDate)} · ${it.segment}</div></div>
       <button class="close" onclick="closeModal()">×</button></div>
     <div class="modal-body">
+      ${photoBlock}
       ${blocks||'<div style="color:var(--muted);font-size:14px">（尚未填寫內容）</div>'}
-      <div class="ph-note">🖼️ <b>代表圖片</b>將在 <b>Phase 3</b> 接上 Google 地圖照片（1 大圖＋3~4 小圖）。目前先顯示地圖連結。</div>
     </div>
     <div class="modal-foot"><div class="spacer"></div><button class="btn primary" onclick="closeModal()">關閉</button></div>`);
+  if(hasPlace){
+    ensurePhoto(cur.tripId,it).then(dataUrl=>{
+      const box=document.getElementById('pvPhoto'); if(!box)return;   // modal 可能已關
+      box.innerHTML = dataUrl
+        ? `<img src="${dataUrl}" alt="${esc(it.title)}">`
+        : `<div class="pv-load">代表圖載入失敗<br>（本機測試不在允許網域，請到線上網站看）</div>`;
+    }).catch(()=>{ const box=document.getElementById('pvPhoto'); if(box) box.innerHTML='<div class="pv-load">代表圖載入失敗</div>'; });
+  }
 }
 
 /* ================= Checklist ================= */
