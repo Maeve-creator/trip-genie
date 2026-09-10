@@ -130,7 +130,7 @@ input,textarea,select{font-family:inherit}
 .menu-item .tag{margin-left:auto;font-size:10px;color:var(--muted);background:var(--bg);padding:2px 6px;border-radius:6px}
 
 /* ============ 時間軸 grid ============ */
-.sched-scroll{overflow:auto;flex:1;min-height:0;padding:18px 22px 60px}
+.sched-scroll{overflow:auto;flex:1;min-height:0;padding:0 0 48px 0}
 .sched{display:grid;min-width:max-content;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
 .seg-label,.day-head,.cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
 .corner{background:var(--primary-soft);border-right:1px solid var(--line);border-bottom:1px solid var(--line);position:sticky;left:0;top:0;z-index:4}
@@ -275,7 +275,7 @@ input,textarea,select{font-family:inherit}
   .mode-btn{padding:8px 11px}
   .trip-head .btn{padding:8px 11px;font-size:13px}
 
-  .sched-scroll{padding:14px 10px calc(50px + env(safe-area-inset-bottom))}
+  .sched-scroll{padding:0 0 calc(48px + env(safe-area-inset-bottom)) 0}
   .seg-label{min-width:56px;padding:10px 6px;font-size:12px}
   .corner .dh-date{font-size:11px}
 
@@ -355,7 +355,7 @@ input,textarea,select{font-family:inherit}
     </div>
     <div class="mode-switch" id="modeSwitch">
       <button class="mode-btn active" data-m="edit" onclick="setMode('edit')" title="編輯">✏️</button>
-      <button class="mode-btn" data-m="view" onclick="setMode('view')" title="閱覽">👁️</button>
+      <button class="mode-btn" data-m="view" onclick="setMode('view')" title="閱覽">👀</button>
     </div>
     <button class="btn" id="shareBtn" onclick="openShare()" title="分享" hidden>🔗</button>
     <button class="btn" onclick="saveNow()" title="儲存行程">💾</button>
@@ -583,7 +583,11 @@ function renderSched(){
   const pane=document.getElementById('schedPane');
   const grid=document.createElement('div'); grid.className='sched';
   const narrow=window.innerWidth<=640;
-  grid.style.gridTemplateColumns=`${narrow?56:76}px repeat(${days.length}, minmax(${narrow?203:253}px,1fr))`;
+  // 桌機：minmax(0,1fr) 讓各天欄自動平分、填滿螢幕、不論天數都不橫捲
+  // 手機：固定較寬欄，可左右橫捲看不同天
+  grid.style.gridTemplateColumns = narrow
+    ? `56px repeat(${days.length}, minmax(203px,1fr))`
+    : `76px repeat(${days.length}, minmax(0,1fr))`;
   grid.style.gridTemplateRows=`auto repeat(${SEGMENTS.length}, auto)`;
   // 表頭
   const corner=document.createElement('div'); corner.className='corner';
@@ -1157,8 +1161,13 @@ initApp();
 
 /* ================= PWA Service Worker 註冊 ================= */
 if('serviceWorker' in navigator){
+  let swRefreshing=false;
+  // 新版 Service Worker 接管後自動重載，讓手機/PWA 不必手動清快取就能吃到最新版
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(swRefreshing) return; swRefreshing=true; location.reload();
+  });
   window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW 註冊失敗',e));
+    navigator.serviceWorker.register('sw.js').then(reg=>{ try{reg.update();}catch(e){} }).catch(e=>console.warn('SW 註冊失敗',e));
   });
 }
 </script>
