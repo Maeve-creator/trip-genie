@@ -270,6 +270,12 @@ input,textarea,select{font-family:inherit}
   .trip-head .tt{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .trip-head .td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .trip-head .spacer{display:none}
+  /* 收成 2 行：第1行 返回+名稱+編輯/閱覽；第2行 日程Checklist+分享+儲存+匯出 */
+  .trip-head .mode-switch{order:2}
+  .trip-head .tabs{order:3}
+  .trip-head #shareBtn{order:4}
+  .trip-head #saveBtn{order:5}
+  .trip-head #exportDD{order:6}
   .tabs,.mode-switch{padding:3px}
   .tab{padding:8px 12px;font-size:13px}
   .mode-btn{padding:8px 11px}
@@ -355,10 +361,10 @@ input,textarea,select{font-family:inherit}
     </div>
     <div class="mode-switch" id="modeSwitch">
       <button class="mode-btn active" data-m="edit" onclick="setMode('edit')" title="編輯">✏️</button>
-      <button class="mode-btn" data-m="view" onclick="setMode('view')" title="閱覽">👀</button>
+      <button class="mode-btn" data-m="view" onclick="setMode('view')" title="閱覽">👁️</button>
     </div>
     <button class="btn" id="shareBtn" onclick="openShare()" title="分享" hidden>🔗</button>
-    <button class="btn" onclick="saveNow()" title="儲存行程">💾</button>
+    <button class="btn" id="saveBtn" onclick="saveNow()" title="儲存行程">💾</button>
     <div class="dropdown" id="exportDD">
       <button class="btn" onclick="toggleExport(event)" title="匯出行程表">⬇▾</button>
       <div class="menu">
