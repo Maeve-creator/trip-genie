@@ -457,11 +457,11 @@ function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2
 
 /* ================= 主題 ================= */
 const THEME_COLOR={forest:'#2C6E49',ocean:'#2A6E96',city:'#2F5D8A'};
-function applyTheme(t){
+function applyTheme(t, doSave){
   state.theme=t; document.body.setAttribute('data-theme',t);
   document.querySelectorAll('#themeSwitch .theme-btn').forEach(b=>b.classList.toggle('active',b.dataset.t===t));
   const mt=document.getElementById('metaTheme'); if(mt&&THEME_COLOR[t]) mt.setAttribute('content',THEME_COLOR[t]);
-  save();
+  if(doSave!==false) save();   // 只有使用者主動切換才寫回；重繪/開啟時套用主題不寫回（避免多裝置互相觸發同步迴圈→跳動）
 }
 document.getElementById('themeSwitch').addEventListener('click',e=>{
   const b=e.target.closest('.theme-btn'); if(!b)return;
@@ -548,7 +548,7 @@ function blankChecklist(){const o={};CHK_CATS.forEach(c=>o[c]=[]);return o;}
 function openTrip(id){
   cur.tripId=id; cur.tab='sched'; cur.mode='edit';
   const t=state.trips.find(x=>x.id===id);
-  if(t.theme) applyTheme(t.theme);
+  if(t.theme) applyTheme(t.theme, false);
   if(!state.items[id]) state.items[id]=[];
   if(!state.checklist[id]) state.checklist[id]=blankChecklist();
   document.getElementById('homeView').hidden=true;
@@ -1074,9 +1074,9 @@ function mergeTrips(ownOnly){
   if(!appStarted) bootUI();
   else if(!ownOnly) rerenderCurrent();   // 只有別人改動才重繪，自己寫的不重繪（避免跳動）
 }
-function bootUI(){ appStarted=true; normalizeState(); applyTheme(state.theme||'forest'); if(cur.tripId) rerenderCurrent(); else renderHome(); }
+function bootUI(){ appStarted=true; normalizeState(); applyTheme(state.theme||'forest', false); if(cur.tripId) rerenderCurrent(); else renderHome(); }
 function rerenderCurrent(){
-  applyTheme(state.theme||'forest');
+  applyTheme(state.theme||'forest', false);
   if(cur.tripId){
     const t=state.trips.find(x=>x.id===cur.tripId);
     if(!t){ goHome(); return; }
@@ -1161,7 +1161,7 @@ function initApp(){
       auth.onAuthStateChanged(onAuth); return;
     }catch(e){ console.warn('Firebase init 失敗，改用本機模式',e); }
   }
-  cloud=false; state=loadLocal(); normalizeState(); applyTheme(state.theme||'forest'); renderHome();
+  cloud=false; state=loadLocal(); normalizeState(); applyTheme(state.theme||'forest', false); renderHome();
 }
 initApp();
 

@@ -6,7 +6,7 @@
      離線時 fallback 到快取，讓 App 殼仍可開啟。
    - 同源靜態資源（icons / manifest）→ cache-first。
 */
-const CACHE = 'trip-genie-v2';
+const CACHE = 'trip-genie-v3';
 const SHELL = [
   './',
   './index.html',
