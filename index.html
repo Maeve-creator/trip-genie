@@ -368,9 +368,9 @@ input,textarea,select{font-family:inherit}
     <div class="dropdown" id="exportDD">
       <button class="btn" onclick="toggleExport(event)" title="匯出行程表">⬇▾</button>
       <div class="menu">
-        <div class="menu-item" onclick="exportStub('HTML')">📄 匯出 HTML<span class="tag">Phase3</span></div>
-        <div class="menu-item" onclick="exportStub('PDF')">🖨 匯出 PDF<span class="tag">Phase3</span></div>
-        <div class="menu-item" onclick="exportStub('手機版')">📱 匯出手機版<span class="tag">Phase3</span></div>
+        <div class="menu-item" onclick="exportHTML()">📄 匯出 HTML</div>
+        <div class="menu-item" onclick="exportPDF()">🖨 匯出 PDF</div>
+        <div class="menu-item" onclick="exportPWAGuide()">📱 存成手機APP</div>
       </div>
     </div>
   </div>
@@ -993,7 +993,233 @@ function saveNow(){
 }
 function toggleExport(e){e.stopPropagation();document.getElementById('exportDD').classList.toggle('open');}
 document.addEventListener('click',()=>document.getElementById('exportDD')?.classList.remove('open'));
-function exportStub(type){toast(`「匯出${type}」將於 Phase 3 開放`);}
+/* ================= 匯出（HTML 靜態快照 / PDF 列印 / 存成手機APP） ================= */
+// 各主題 token（對應 CSS :root / [data-theme]），匯出時 inline 進靜態檔
+const EXPORT_THEME_VARS={
+  forest:{bg:'#F1EDE1',surface:'#ffffff',primary:'#2C6E49','primary-soft':'#D3E7DA',accent:'#B5651D','accent-soft':'#F0E1CE',accent2:'#7A9A4E',accent3:'#B24C57','meal-bg':'#FAEFDD',text:'#26261D',muted:'#807A67',line:'#E1DCCB'},
+  ocean:{bg:'#E7EDF1',surface:'#ffffff',primary:'#2A6E96','primary-soft':'#C6D8E2',accent:'#EE9040','accent-soft':'#F7E4D2',accent2:'#3596A0',accent3:'#E07A72','meal-bg':'#DDE9EA',text:'#182A34',muted:'#607985',line:'#CBD9E1'},
+  city:{bg:'#F5F3EF',surface:'#ffffff',primary:'#2F5D8A','primary-soft':'#D6E3F1',accent:'#E4491F','accent-soft':'#FBDDD2',accent2:'#F4B740',accent3:'#3AA0A6','meal-bg':'#FBE9E1',text:'#1E212A',muted:'#787A83',line:'#E1DED7'}
+};
+const CHK_ICON={'重要事項':'📌','個人衣物':'👕','盥洗用品':'🧴','3C產品':'🔌','個人藥物':'💊','其他':'🎒'};
+
+function exportFileName(t,ext){
+  const base=(t&&t.name?t.name:'行程表').replace(/[\\/:*?"<>|]+/g,'_').trim()||'行程表';
+  const d=new Date(); const ymd=d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+  return base+'_行程表_'+ymd+'.'+ext;
+}
+// 只取已落地快照，絕不呼叫 Google API（守需求 11＋referrer 擋 localhost）
+async function gatherExportPhotos(tripId,items){
+  const map={};
+  for(const it of items){
+    if(!it.placeId||!it.photoName) continue;
+    if(photoMemCache[it.id]){ map[it.id]=photoMemCache[it.id]; continue; }
+    const doc=await getPhotoDoc(tripId,it.id);
+    if(doc&&doc.dataUrl){ map[it.id]=doc.dataUrl; photoMemCache[it.id]=doc.dataUrl; }
+  }
+  return map;
+}
+// 產生純靜態 RWD 快照 HTML（forPrint=true 時附自動列印腳本，供 PDF 用）
+function buildSnapshotHTML(t,items,checklist,photos,forPrint){
+  const theme=(t&&t.theme&&EXPORT_THEME_VARS[t.theme])?t.theme:'forest';
+  const V=EXPORT_THEME_VARS[theme];
+  const varLines=Object.keys(V).map(k=>'--'+k+':'+V[k]).join(';');
+  const days=tripDays(t);
+  const now=new Date();
+  const exportedAt=now.getFullYear()+'/'+(now.getMonth()+1)+'/'+now.getDate();
+
+  // 逐日 → 逐段（只列有內容的段，依 SEGMENTS 順序）
+  const daysHtml=days.map(dt=>{
+    const dd=new Date(dt+'T00:00:00');
+    const dayLabel=(dd.getMonth()+1)+'/'+dd.getDate()+' ('+WD[dd.getDay()]+')';
+    const segsHtml=SEGMENTS.map(seg=>{
+      const list=items.filter(it=>it.dayDate===dt&&it.segment===seg).sort((a,b)=>(a.orderInSegment||0)-(b.orderInSegment||0));
+      if(!list.length) return '';
+      const isMeal=MEALS.includes(seg);
+      const cards=list.map(it=>{
+        const span=it.spanSegments||1;
+        const si=SEGMENTS.indexOf(it.segment);
+        const spanNote=span>1?` <span class="span-note">↕ ${esc(SEGMENTS[si])}－${esc(SEGMENTS[Math.min(si+span-1,SEGMENTS.length-1)])}</span>`:'';
+        const rows=[];
+        if(it.desc) rows.push(`<div class="c-desc">${esc(it.desc)}</div>`);
+        const timeStr=[it.closedDay,it.hours].filter(Boolean).join('，');
+        if(timeStr) rows.push(`<div class="c-meta">🕐 ${esc(timeStr)}</div>`);
+        if(it.mapUrl) rows.push(`<div class="c-meta"><a href="${esc(it.mapUrl)}" target="_blank" rel="noopener">📍 在 Google Maps 開啟</a></div>`);
+        const photo=photos[it.id];
+        const photoHtml=photo?`<div class="c-photo"><img src="${photo}" alt="${esc(it.title)||'代表圖'}" loading="lazy"></div>`:'';
+        return `<article class="card">
+          <div class="c-body"><h3 class="c-title">${esc(it.title)||'（未命名地點）'}${spanNote}</h3>${rows.join('')}</div>
+          ${photoHtml}
+        </article>`;
+      }).join('');
+      return `<div class="seg${isMeal?' meal':''}"><div class="seg-name">${esc(seg)}</div><div class="seg-cards">${cards}</div></div>`;
+    }).join('');
+    const empty=segsHtml?'':'<div class="day-empty">（本日尚未安排行程）</div>';
+    return `<section class="day"><h2 class="day-h">${dayLabel}</h2>${segsHtml}${empty}</section>`;
+  }).join('');
+
+  // Checklist（靜態勾選，☑/☐；只列有項目的類別）
+  const cl=checklist||{};
+  const chkCats=CHK_CATS.map(cat=>{
+    const arr=cl[cat]||[]; if(!arr.length) return '';
+    const lis=arr.map(x=>`<li class="${x.checked?'done':''}"><span class="box">${x.checked?'☑':'☐'}</span><span class="t">${esc(x.text)}</span></li>`).join('');
+    return `<div class="chk-cat"><h3>${CHK_ICON[cat]||''} ${esc(cat)}</h3><ul>${lis}</ul></div>`;
+  }).join('');
+  const chkHtml=chkCats?`<section class="checklist"><h2 class="sec-h">🧳 行前 Checklist</h2><div class="chk-grid">${chkCats}</div></section>`:'';
+
+  const printScript=forPrint?'<script>window.addEventListener("load",function(){setTimeout(function(){window.print();},350);});<\/script>':'';
+
+  return `<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(t.name||'行程表')} · 行程表</title>
+<style>
+:root{${varLines};--radius:14px}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:-apple-system,"Segoe UI",Roboto,"Noto Sans TC","Microsoft JhengHei",sans-serif;line-height:1.55;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{padding:24px 18px 60px}
+.wrap{max-width:820px;margin:0 auto}
+.doc-head{border-bottom:3px solid var(--primary);padding-bottom:14px;margin-bottom:22px}
+.brand{font-size:13px;font-weight:800;letter-spacing:1px;color:var(--accent);text-transform:uppercase}
+.doc-head h1{font-size:26px;color:var(--primary);margin:4px 0 6px}
+.doc-head .meta{font-size:13px;color:var(--muted)}
+.day{margin-bottom:26px;break-inside:avoid}
+.day-h{font-size:17px;color:#fff;background:var(--primary);border-radius:10px;padding:7px 14px;display:inline-block;margin-bottom:12px}
+.seg{margin:0 0 12px;padding-left:12px;border-left:3px solid var(--line)}
+.seg.meal{border-left-color:var(--accent)}
+.seg-name{font-size:13px;font-weight:800;color:var(--accent);margin-bottom:6px}
+.seg.meal .seg-name{color:var(--accent)}
+.seg-cards{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;display:flex;gap:14px;align-items:flex-start;break-inside:avoid;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.c-body{flex:1;min-width:0}
+.c-title{font-size:15.5px;color:var(--text);margin-bottom:4px}
+.span-note{font-size:11px;font-weight:600;color:var(--muted);background:var(--bg);padding:1px 7px;border-radius:6px;white-space:nowrap}
+.c-desc{font-size:14px;color:var(--text);margin:3px 0;white-space:pre-wrap}
+.c-meta{font-size:13px;color:var(--muted);margin-top:3px}
+.c-meta a{color:var(--primary);text-decoration:none;font-weight:600}
+.c-photo{flex:none;width:150px}
+.c-photo img{width:150px;height:110px;object-fit:cover;border-radius:10px;display:block;border:1px solid var(--line)}
+.day-empty{font-size:13px;color:var(--muted);padding:2px 0 8px}
+.sec-h{font-size:19px;color:var(--primary);margin:30px 0 14px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+.chk-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.chk-cat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;break-inside:avoid}
+.chk-cat h3{font-size:14px;color:var(--accent);margin-bottom:8px}
+.chk-cat ul{list-style:none}
+.chk-cat li{display:flex;gap:8px;align-items:flex-start;font-size:14px;padding:3px 0;color:var(--text)}
+.chk-cat li .box{color:var(--primary)}
+.chk-cat li.done .t{text-decoration:line-through;color:var(--muted)}
+.doc-foot{margin-top:34px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);text-align:center}
+.doc-foot a{color:var(--primary)}
+@media (max-width:560px){
+  .card{flex-direction:column}
+  .c-photo,.c-photo img{width:100%}
+  .c-photo img{height:180px}
+  .chk-grid{grid-template-columns:1fr}
+}
+@media print{
+  body{padding:0}
+  .wrap{max-width:none}
+  @page{margin:14mm}
+  .card,.chk-cat,.day{box-shadow:none}
+  .doc-foot{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="doc-head">
+  <div class="brand">Trip Genie</div>
+  <h1>${esc(t.name||'行程表')}</h1>
+  <div class="meta">${esc(fmtRange(t.startDate,t.endDate))} · ${dayCount(t.startDate,t.endDate)} 天 · 匯出於 ${exportedAt}</div>
+</header>
+<main>
+${daysHtml}
+${chkHtml}
+</main>
+<footer class="doc-foot">由 <strong>Trip Genie</strong> 匯出的靜態行程快照 · <a href="https://trip-genie-cccb2.firebaseapp.com/" target="_blank" rel="noopener">trip-genie-cccb2.firebaseapp.com</a></footer>
+</div>
+${printScript}
+</body>
+</html>`;
+}
+
+async function prepExport(){
+  if(!cur.tripId){ toast('請先開啟一個行程再匯出'); return null; }
+  const t=state.trips.find(x=>x.id===cur.tripId); if(!t){ toast('找不到行程'); return null; }
+  const items=state.items[cur.tripId]||[];
+  const checklist=state.checklist[cur.tripId]||blankChecklist();
+  const photos=await gatherExportPhotos(cur.tripId,items);
+  return {t,items,checklist,photos};
+}
+
+async function exportHTML(){
+  toast('產生 HTML 快照中…');
+  try{
+    const d=await prepExport(); if(!d) return;
+    const html=buildSnapshotHTML(d.t,d.items,d.checklist,d.photos,false);
+    const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=exportFileName(d.t,'html');
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+    toast('✓ 已匯出 HTML（可離線開啟／寄送）');
+  }catch(e){ console.warn('exportHTML',e); toast('匯出 HTML 失敗：'+(e.message||e)); }
+}
+
+async function exportPDF(){
+  // 先同步開視窗（保住 user gesture，避免 await 後被彈窗攔截）
+  const w=window.open('','_blank');
+  if(!w){ toast('請允許彈出視窗，才能列印 PDF'); return; }
+  try{
+    w.document.write('<!doctype html><meta charset="utf-8"><title>產生中…</title><body style="font-family:sans-serif;padding:40px;color:#555">產生 PDF 快照中，請稍候…</body>');
+  }catch(_){}
+  toast('產生 PDF 快照中…');
+  try{
+    const d=await prepExport();
+    if(!d){ w.close(); return; }
+    const html=buildSnapshotHTML(d.t,d.items,d.checklist,d.photos,true);
+    w.document.open(); w.document.write(html); w.document.close();
+    toast('✓ 已開啟列印，於對話框選「另存為 PDF」');
+  }catch(e){ try{w.close();}catch(_){}; console.warn('exportPDF',e); toast('匯出 PDF 失敗：'+(e.message||e)); }
+}
+
+function exportPWAGuide(){
+  const ua=navigator.userAgent||'';
+  const isIOS=/iPhone|iPad|iPod/i.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1);
+  const isAndroid=/Android/i.test(ua);
+  let steps;
+  if(isIOS){
+    steps=['用 <b>Safari</b> 開啟本網站（勿用 LINE／FB 內建瀏覽器）',
+      '點畫面下方的<b>分享鈕</b> <span style="font-size:16px">⬆️</span>',
+      '下滑選擇 <b>「加入主畫面」</b>',
+      '按「加入」→ 桌面出現 <b>Trip Genie</b> 圖示，開啟即全螢幕、像原生 App'];
+  }else if(isAndroid){
+    steps=['用 <b>Chrome</b> 開啟本網站',
+      '點右上角 <b>⋮ 選單</b>',
+      '選 <b>「安裝應用程式」</b> 或「加到主畫面」',
+      '完成 → 桌面出現 <b>Trip Genie</b> 圖示，開啟即全螢幕'];
+  }else{
+    steps=['<b>iPhone / iPad</b>：用 Safari 開啟 → 分享鈕 ⬆️ →「加入主畫面」',
+      '<b>Android</b>：用 Chrome 開啟 → ⋮ 選單 →「安裝應用程式／加到主畫面」',
+      '<b>桌機 Chrome / Edge</b>：網址列右側的「安裝」圖示，可裝成獨立視窗 App'];
+  }
+  const li=steps.map((s,i)=>`<div style="display:flex;gap:10px;align-items:flex-start;margin:8px 0">
+      <span style="flex:none;width:22px;height:22px;border-radius:50%;background:var(--primary);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center">${i+1}</span>
+      <div style="font-size:14px;line-height:1.5;color:var(--text)">${s}</div></div>`).join('');
+  openModal(`
+    <div class="modal-head"><div><h2>📱 存成手機 App</h2><div class="sub">加到主畫面，離線可開、像原生 App</div></div>
+      <button class="close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.6">Trip Genie 已是 <b>PWA</b>（漸進式網頁 App）。依下列步驟加到主畫面，即可像 App 一樣開啟、保留登入、離線檢視看過的行程。</div>
+      ${li}
+      <div style="margin-top:14px;padding:10px 12px;background:var(--bg);border-radius:10px;font-size:12.5px;color:var(--muted);line-height:1.6">
+        目前網址：<a href="https://trip-genie-cccb2.firebaseapp.com/" target="_blank" rel="noopener" style="color:var(--primary);font-weight:600">trip-genie-cccb2.firebaseapp.com</a><br>
+        💡 想要一份可寄送／離線保存的靜態行程表，請改用「📄 匯出 HTML」。
+      </div>
+    </div>
+    <div class="modal-foot"><div class="spacer"></div><button class="btn primary" onclick="closeModal()">知道了</button></div>`);
+}
 
 /* ================= 小工具 ================= */
 function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
