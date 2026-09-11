@@ -209,12 +209,12 @@ input,textarea,select{font-family:inherit}
 .fl-end.fl-arr{text-align:right}
 .fl-code{font-size:26px;font-weight:900;color:var(--text);letter-spacing:1px}
 .fl-ap{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.3}
-.fl-dt{font-size:20px;color:var(--accent3);margin-top:6px}
+.fl-dt{font-size:26px;color:var(--accent3);margin-top:6px}
 .fl-dt b{font-weight:900}
-.fl-day{font-size:12px;font-weight:700;color:var(--accent3);margin-top:2px}
+.fl-day{font-size:14px;font-weight:800;color:var(--accent3);margin-top:3px}
 .fl-mid{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:66px;color:var(--muted)}
-.fl-line{position:relative;width:100%;border-top:2px dashed var(--line)}
-.fl-plane{position:absolute;top:-11px;left:50%;transform:translateX(-50%) rotate(45deg);background:var(--surface);padding:0 4px;color:var(--primary)}
+.fl-line{position:relative;width:100%;border-top:2px solid var(--line)}
+.fl-plane{position:absolute;top:-15px;left:50%;transform:translateX(-50%);background:var(--surface);padding:0 6px;color:var(--primary);font-size:22px;font-weight:800}
 .fl-dur{font-size:11px;margin-top:8px;text-align:center}
 .fl-meta{margin-top:12px;font-size:12.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px}
 .fl-note{margin-top:8px;font-size:12.5px;color:var(--text);background:var(--bg);padding:8px 10px;border-radius:8px;white-space:pre-wrap}
@@ -240,11 +240,10 @@ input,textarea,select{font-family:inherit}
 .fc-col.fc-r{align-items:flex-end;margin-left:auto}
 .fc-code{font-size:16px;font-weight:900;color:var(--text);letter-spacing:.5px}
 .fc-time{font-size:12.5px;font-weight:800;color:var(--accent3)}
-.fc-arrow{color:var(--muted);font-size:11px;transform:rotate(45deg)}
-.fc-ap{font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.3}
+.fc-arrow{color:var(--muted);font-size:14px;font-weight:800}
 @media (max-width:640px){
   .fl-inner{padding:16px 12px calc(50px + env(safe-area-inset-bottom))}
-  .fl-code{font-size:22px} .fl-dt{font-size:17px}
+  .fl-code{font-size:22px} .fl-dt{font-size:22px} .fl-day{font-size:13px}
 }
 
 /* ============ Modal ============ */
@@ -741,10 +740,9 @@ function renderFlightCard(it){
     <div class="fc-head"><span class="fc-plane">✈</span><span class="fc-no">${esc(flightTitle(it))}</span>${stChip}</div>
     <div class="fc-row">
       <div class="fc-col"><div class="fc-code">${esc(it.depCode||'—')}</div><div class="fc-time">${esc(it.depTime||'--:--')}</div></div>
-      <div class="fc-arrow">✈</div>
+      <div class="fc-arrow">→</div>
       <div class="fc-col fc-r"><div class="fc-code">${esc(it.arrCode||'—')}</div><div class="fc-time">${esc(it.arrTime||'--:--')}</div></div>
     </div>
-    ${(it.depName||it.arrName)?`<div class="fc-ap">${esc(it.depName||it.depCode||'')} → ${esc(it.arrName||it.arrCode||'')}</div>`:''}
     ${cur.mode==='edit'?'<span class="grip" title="拖曳移動">⠿</span>':''}`;
   box.onclick=()=>{ if(cur.mode==='edit') editFlight(it.id); else viewFlight(it.id); };
   if(cur.mode==='edit'){
@@ -1166,7 +1164,7 @@ function flCard(it,editing){
         <div class="fl-dt"><b>${esc(it.depTime||'--:--')}</b></div>
         <div class="fl-day">${fmtFDate(it.depDate)}</div>
       </div>
-      <div class="fl-mid"><div class="fl-line"><span class="fl-plane">✈</span></div>${it.duration?`<div class="fl-dur">${esc(it.duration)}</div>`:''}</div>
+      <div class="fl-mid"><div class="fl-line"><span class="fl-plane">→</span></div>${it.duration?`<div class="fl-dur">${esc(it.duration)}</div>`:''}</div>
       <div class="fl-end fl-arr">
         <div class="fl-code">${esc(it.arrCode||'—')}</div>
         <div class="fl-ap">${esc(it.arrName||'')}${it.arrTerminal?` · 航廈 ${esc(it.arrTerminal)}`:''}</div>
