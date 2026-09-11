@@ -146,6 +146,11 @@ input,textarea,select{font-family:inherit}
 .cell.meal.dragover{background:var(--primary-soft)}
 .cell.spanning{background:linear-gradient(180deg,var(--accent-soft),transparent 60%),var(--surface)}
 .cell.spanning.meal{background:linear-gradient(180deg,var(--accent-soft),transparent 60%),var(--meal-bg)}
+/* 備案欄：最末段，灰底灰字＋上緣粗橫線與正式行程區隔 */
+.seg-label.alt{background:#EAE8E1;color:var(--muted)}
+.seg-label.alt,.cell.alt{border-top:3px solid var(--muted)}
+.cell.alt{background:var(--bg)}
+.cell.alt.dragover{background:var(--primary-soft)}
 .item.tall{flex:1 1 auto;display:flex;flex-direction:column;border-left-width:5px;border-left-color:var(--accent)}
 .item.tall .span-badge{margin-top:auto;align-self:flex-start;font-size:10px;font-weight:800;color:var(--accent);background:var(--accent-soft);padding:2px 7px;border-radius:6px}
 .resize-guide{position:fixed;background:var(--primary-soft);border:2px dashed var(--primary);opacity:.7;border-radius:10px;z-index:150;pointer-events:none;box-shadow:var(--shadow)}
@@ -260,7 +265,8 @@ input,textarea,select{font-family:inherit}
   .theme-btn .dot{width:15px;height:15px}
   .user-chip{gap:5px}
   .user-chip .uemail{display:none}                   /* email 太長，手機隱藏 */
-  #adminBtn .btn-label{display:none}                  /* 只留 👥，省空間 */
+  #adminBtn .btn-label{display:none}                  /* 只留 🔑，省空間 */
+  .desktop-only{display:none!important}               /* 安裝APP鍵手機不顯示，改用登入後自動彈窗引導 */
   .topbar .btn{white-space:nowrap}                    /* 防「登出」被壓成直排 */
 
   .wrap{padding:20px 14px calc(50px + env(safe-area-inset-bottom))}
@@ -343,7 +349,8 @@ input,textarea,select{font-family:inherit}
     <button class="theme-btn" data-t="city"><span class="dot"></span><span class="tlabel">城市</span></button>
   </div>
   <div class="user-chip" id="userChip" hidden>
-    <button class="btn sm" id="adminBtn" onclick="openAdmin()" hidden>👥<span class="btn-label"> App 成員</span></button>
+    <button class="btn sm" id="adminBtn" onclick="openAdmin()" hidden>🔑<span class="btn-label"> 權限管理</span></button>
+    <button class="btn sm desktop-only" id="installBtn" onclick="exportPWAGuide()">📱<span class="btn-label"> 安裝手機APP</span></button>
     <span class="uemail" id="uEmail" title=""></span>
     <button class="btn ghost sm" onclick="doSignOut()">登出</button>
   </div>
@@ -380,7 +387,6 @@ input,textarea,select{font-family:inherit}
       <div class="menu">
         <div class="menu-item" onclick="exportHTML()">📄 匯出 HTML</div>
         <div class="menu-item" onclick="exportPDF()">🖨 匯出 PDF</div>
-        <div class="menu-item" onclick="exportPWAGuide()">📱 存成手機APP</div>
       </div>
     </div>
   </div>
@@ -398,7 +404,8 @@ input,textarea,select{font-family:inherit}
 <script>
 /* ================= 資料層 (Phase 1: localStorage) ================= */
 const LS_KEY='travelPlanner_v1';
-const SEGMENTS=['早餐前','早餐','早上','午餐','下午茶','下午','晚餐','晚上','住宿'];
+const SEGMENTS=['早餐前','早餐','早上','午餐','下午茶','下午','晚餐','晚上','住宿','備案'];
+const ALT_SEG='備案';   // 備案欄：位於最末段，與正式行程共用 CRUD／拖曳，可互相升降級
 const CHK_CATS=['重要事項','個人衣物','盥洗用品','3C產品','個人藥物','其他'];
 const WD=['日','一','二','三','四','五','六'];
 const COVER_EMOJI=['🏖️','🏔️','🌆','🗺️','🧳','🌸','🍜','⛩️'];
@@ -622,13 +629,14 @@ function renderSched(){
   items.forEach(it=>{const sp=it.spanSegments||1;if(sp>1){const si=SEGMENTS.indexOf(it.segment);for(let k=1;k<sp&&si+k<SEGMENTS.length;k++)covered.add(it.dayDate+'|'+(si+k));}});
   // 段標籤 + 各日格
   SEGMENTS.forEach((seg,si)=>{
-    const lab=document.createElement('div'); lab.className='seg-label'+(MEALS.includes(seg)?' meal':'');
+    const isAlt=(seg===ALT_SEG);
+    const lab=document.createElement('div'); lab.className='seg-label'+(MEALS.includes(seg)?' meal':'')+(isAlt?' alt':'');
     lab.textContent=seg; lab.style.gridColumn='1'; lab.style.gridRow=(si+2); grid.appendChild(lab);
     days.forEach((dt,di)=>{
       if(covered.has(dt+'|'+si)) return; // 被上方長卡覆蓋，不畫
       const list=items.filter(it=>it.dayDate===dt&&it.segment===seg).sort((a,b)=>a.orderInSegment-b.orderInSegment);
       let cellSpan=1; list.forEach(it=>{const sp=Math.min(it.spanSegments||1,SEGMENTS.length-si);if(sp>cellSpan)cellSpan=sp;});
-      const cell=document.createElement('div'); cell.className='cell'+(MEALS.includes(seg)?' meal':'')+(cellSpan>1?' spanning':'');
+      const cell=document.createElement('div'); cell.className='cell'+(MEALS.includes(seg)?' meal':'')+(isAlt?' alt':'')+(cellSpan>1?' spanning':'');
       cell.dataset.day=dt; cell.dataset.seg=seg;
       cell.style.gridColumn=(di+2); cell.style.gridRow=`${si+2} / span ${cellSpan}`;
       list.forEach(it=>cell.appendChild(renderItem(it,si)));
@@ -1295,6 +1303,13 @@ function exportPWAGuide(){
     </div>
     <div class="modal-foot"><div class="spacer"></div><button class="btn primary" onclick="closeModal()">知道了</button></div>`);
 }
+function isStandaloneApp(){ try{ return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true; }catch(e){ return false; } }
+function isMobileUA(){ return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent||''); }
+// 手機用瀏覽器開（尚未裝成 App）→ 登入後引導安裝；已裝成 standalone 則不打擾
+function maybeMobileInstallPrompt(){
+  if(!isMobileUA() || isStandaloneApp()) return;
+  setTimeout(()=>{ if(!document.getElementById('overlay').classList.contains('show')) exportPWAGuide(); }, 1400);
+}
 
 /* ================= 小工具 ================= */
 function esc(s){return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -1345,6 +1360,7 @@ async function onAuth(user){
   document.getElementById('adminBtn').hidden=!isAdmin;
   document.getElementById('userChip').hidden=false;
   hideGate(); startCloud();
+  maybeMobileInstallPrompt();   // 手機（非 standalone）登入後引導安裝成 App
   setTimeout(()=>{ if(!appStarted) bootUI(); }, 6000);   // 保險：資料若卡住也先顯示首頁
 }
 function startCloud(){
@@ -1396,7 +1412,7 @@ async function openAdmin(){
   const rows=list.length?list.map(e=>`<div class="al-row"><span>${esc(e)}</span><button class="btn danger sm" onclick="removeAllow('${esc(e)}')">移除</button></div>`).join('')
                         :'<div style="color:var(--muted);font-size:13px;padding:8px 0">尚無授權團員</div>';
   openModal(`
-    <div class="modal-head"><div><h2>👥 App 成員（誰能登入）</h2><div class="sub">管理員：${esc(d.admin||ADMIN_EMAIL)}</div></div><button class="close" onclick="closeModal()">×</button></div>
+    <div class="modal-head"><div><h2>🔑 權限管理（誰能登入）</h2><div class="sub">管理員：${esc(d.admin||ADMIN_EMAIL)}</div></div><button class="close" onclick="closeModal()">×</button></div>
     <div class="modal-body">
       <div class="ph-note">這裡只決定「誰能登入 Trip Genie」。<b>加入後對方登入本身看不到任何行程</b>；要讓他看到某趟行程，還要進那趟行程按「🔗 分享」個別加入。</div>
       <div class="field"><label>新增可登入的 Gmail</label>
@@ -1432,7 +1448,7 @@ function openShare(){
         <div style="display:flex;gap:8px"><input id="mb_email" type="email" placeholder="family@gmail.com" style="flex:1"><button class="btn primary" onclick="addMember()">加入</button></div>
       </div>
       <div><div style="font-size:11.5px;font-weight:800;color:var(--muted);margin-bottom:4px">目前分享對象</div>${rows}</div>
-      <div class="ph-note">對方需先在「👥 App 成員」清單內（才能登入 Trip Genie）；登入後他只會看到分享給他的行程，看不到你其他行程。<br>網址：<b>trip-genie-cccb2.firebaseapp.com</b></div>
+      <div class="ph-note">對方需先在「🔑 權限管理」清單內（才能登入 Trip Genie）；登入後他只會看到分享給他的行程，看不到你其他行程。<br>網址：<b>trip-genie-cccb2.firebaseapp.com</b></div>
     </div>
     <div class="modal-foot"><div class="spacer"></div><button class="btn primary" onclick="closeModal()">完成</button></div>`);
   setTimeout(()=>document.getElementById('mb_email')?.focus(),50);
