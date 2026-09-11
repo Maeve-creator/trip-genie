@@ -203,7 +203,6 @@ input,textarea,select{font-family:inherit}
 .fl-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .fl-no{font-size:17px;font-weight:900;color:var(--primary)}
 .fl-air{font-size:12.5px;color:var(--muted)}
-.fl-status{font-size:11px;font-weight:800;border:1px solid;border-radius:20px;padding:2px 10px}
 .fl-route{display:flex;align-items:stretch;gap:10px}
 .fl-end{flex:1;min-width:0}
 .fl-end.fl-arr{text-align:right}
@@ -234,7 +233,6 @@ input,textarea,select{font-family:inherit}
 .fc-head{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--primary)}
 .fc-plane{transform:rotate(45deg)}
 .fc-no{font-weight:900}
-.fc-status{margin-left:auto;font-size:10.5px;font-weight:800}
 .fc-row{display:flex;align-items:center;gap:8px;margin-top:5px}
 .fc-col{display:flex;flex-direction:column;line-height:1.15}
 .fc-col.fc-r{align-items:flex-end;margin-left:auto}
@@ -734,10 +732,8 @@ function renderItem(it,startIdx){
 // 日程頁的航班簡化卡（圖5）：飛機圖示＋底色，只秀起降機場/時間/航班號/狀態
 function renderFlightCard(it){
   const box=document.createElement('div'); box.className='item flight'; box.dataset.id=it.id;
-  const st=(it.status||'').trim();
-  const stChip=st?`<span class="fc-status" style="color:${statusColor(st)}">${esc(st)}</span>`:'';
   box.innerHTML=`
-    <div class="fc-head"><span class="fc-plane">✈</span><span class="fc-no">${esc(flightTitle(it))}</span>${stChip}</div>
+    <div class="fc-head"><span class="fc-plane">✈</span><span class="fc-no">${esc(flightTitle(it))}</span></div>
     <div class="fc-row">
       <div class="fc-col"><div class="fc-code">${esc(it.depCode||'—')}</div><div class="fc-time">${esc(it.depTime||'--:--')}</div></div>
       <div class="fc-arrow">→</div>
@@ -1125,10 +1121,6 @@ function segByTime(hhmm){
 }
 function flightItems(id){ return (state.items[id]||[]).filter(x=>x.type==='flight'); }
 function flightTitle(it){ return (it.flightNo||'').trim() || `${(it.depCode||'?')}→${(it.arrCode||'?')}`; }
-function statusColor(s){ s=(s||'').trim();
-  if(/延誤|delay|取消|cancel/i.test(s)) return 'var(--accent3)';
-  if(/準點|準時|on.?time|正常/i.test(s)) return 'var(--accent2)';
-  return 'var(--muted)'; }
 function fmtFDate(d){ if(!d)return''; const x=new Date(d+'T00:00:00'); if(isNaN(x))return esc(d); return `${x.getFullYear()}/${x.getMonth()+1}/${x.getDate()} (${WD[x.getDay()]})`; }
 
 function renderFlights(){
@@ -1149,14 +1141,12 @@ function renderFlights(){
   pane.innerHTML=html;
 }
 function flCard(it,editing){
-  const st=(it.status||'').trim();
-  const stChip=st?`<span class="fl-status" style="color:${statusColor(st)};border-color:${statusColor(st)}">${esc(st)}</span>`:'';
   const meta=[]; if(it.duration)meta.push('🕐 '+esc(it.duration));
   if(it.gate)meta.push('登機門 '+esc(it.gate)); if(it.seat)meta.push('座位 '+esc(it.seat));
   if(it.baggage)meta.push('行李 '+esc(it.baggage));
   const acts=editing?`<div class="fl-acts"><button class="fl-x" title="編輯" onclick="editFlight('${it.id}')">✏️</button><button class="fl-x" title="刪除" onclick="delFlight('${it.id}')">🗑</button></div>`:'';
   return `<div class="fl-card">
-    <div class="fl-top"><span class="fl-no">✈ ${esc(flightTitle(it))}</span>${it.airline?`<span class="fl-air">${esc(it.airline)}</span>`:''}<div class="spacer"></div>${stChip}${acts}</div>
+    <div class="fl-top"><span class="fl-no">✈ ${esc(flightTitle(it))}</span>${it.airline?`<span class="fl-air">${esc(it.airline)}</span>`:''}<div class="spacer"></div>${acts}</div>
     <div class="fl-route">
       <div class="fl-end">
         <div class="fl-code">${esc(it.depCode||'—')}</div>
@@ -1180,14 +1170,11 @@ function fInput(id,label,val,ph,type){ return `<label class="ff"><span>${label}<
 function editFlight(id){
   const it=id?(state.items[cur.tripId]||[]).find(x=>x.id===id):null;
   const v=it||{};
-  const statuses=['','準點','延誤','取消'];
-  const stOpts=statuses.map(s=>`<option value="${s}" ${((v.status||'')===s)?'selected':''}>${s||'（未設定）'}</option>`).join('');
   openModal(`
     <div class="modal-head"><div><h2>✈ ${id?'編輯':'新增'}航班</h2><div class="sub">紅色為關鍵資訊（日期／時間）</div></div>
       <button class="close" onclick="closeModal()">×</button></div>
     <div class="modal-body">
       <div class="ff-row">${fInput('airline','航空公司',v.airline,'如：長榮航空')}${fInput('flightNo','航班號 *',v.flightNo,'如：BR867')}</div>
-      <label class="ff"><span>狀態</span><select id="fl_status">${stOpts}</select></label>
       <div class="ff-sec">出發</div>
       <div class="ff-row">${fInput('depCode','機場代碼',v.depCode,'TPE')}${fInput('depTerminal','航廈',v.depTerminal,'2')}</div>
       ${fInput('depName','機場名稱',v.depName,'台灣桃園國際機場')}
@@ -1214,7 +1201,7 @@ function saveFlight(id){
   const isNew=!it;
   if(isNew){ it={id:'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), type:'flight'}; }
   Object.assign(it,{
-    type:'flight', airline:g('airline'), flightNo:flightNo, status:g('status'),
+    type:'flight', airline:g('airline'), flightNo:flightNo,
     depCode:g('depCode').toUpperCase(), depName:g('depName'), depTerminal:g('depTerminal'), depDate:g('depDate'), depTime:g('depTime'),
     arrCode:g('arrCode').toUpperCase(), arrName:g('arrName'), arrTerminal:g('arrTerminal'), arrDate:g('arrDate'), arrTime:g('arrTime'),
     duration:g('duration'), gate:g('gate'), seat:g('seat'), baggage:g('baggage'), note:g('note')
