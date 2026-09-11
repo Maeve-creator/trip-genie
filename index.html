@@ -193,6 +193,59 @@ input,textarea,select{font-family:inherit}
 .chk-tools label{font-size:13.5px;font-weight:700;color:var(--primary)}
 .chk-tools select{border:1px solid var(--line);background:var(--bg);color:var(--text);padding:7px 10px;border-radius:9px;font-size:13.5px;max-width:210px;cursor:pointer}
 .chk-tools select:disabled{opacity:.55;cursor:default}
+/* ===== 航班資訊 Tab ===== */
+.flight-wrap{flex:1;overflow-y:auto;min-height:0;width:100%}
+.fl-inner{max-width:760px;margin:0 auto;padding:22px 20px 60px}
+.fl-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.fl-hint{font-size:14px;font-weight:800;color:var(--primary)}
+.fl-empty{text-align:center;color:var(--muted);font-size:14px;padding:44px 0}
+.fl-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow-sm);margin-bottom:14px;border-left:5px solid var(--primary)}
+.fl-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.fl-no{font-size:17px;font-weight:900;color:var(--primary)}
+.fl-air{font-size:12.5px;color:var(--muted)}
+.fl-status{font-size:11px;font-weight:800;border:1px solid;border-radius:20px;padding:2px 10px}
+.fl-route{display:flex;align-items:stretch;gap:10px}
+.fl-end{flex:1;min-width:0}
+.fl-end.fl-arr{text-align:right}
+.fl-code{font-size:26px;font-weight:900;color:var(--text);letter-spacing:1px}
+.fl-ap{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.3}
+.fl-dt{font-size:20px;color:var(--accent3);margin-top:6px}
+.fl-dt b{font-weight:900}
+.fl-day{font-size:12px;font-weight:700;color:var(--accent3);margin-top:2px}
+.fl-mid{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:66px;color:var(--muted)}
+.fl-line{position:relative;width:100%;border-top:2px dashed var(--line)}
+.fl-plane{position:absolute;top:-11px;left:50%;transform:translateX(-50%) rotate(45deg);background:var(--surface);padding:0 4px;color:var(--primary)}
+.fl-dur{font-size:11px;margin-top:8px;text-align:center}
+.fl-meta{margin-top:12px;font-size:12.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px}
+.fl-note{margin-top:8px;font-size:12.5px;color:var(--text);background:var(--bg);padding:8px 10px;border-radius:8px;white-space:pre-wrap}
+.fl-acts{display:flex;gap:2px}
+.fl-x{border:none;background:transparent;cursor:pointer;font-size:14px;padding:3px 6px;border-radius:7px}
+.fl-x:hover{background:var(--bg)}
+/* 航班表單 */
+.ff{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.ff>span{font-weight:700;color:var(--muted);font-size:12px}
+.ff input,.ff select{border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:14px;background:var(--surface);color:var(--text);width:100%}
+.ff input:focus,.ff select:focus{outline:none;border-color:var(--primary)}
+.ff-row{display:flex;gap:10px}
+.ff-row .ff{flex:1;min-width:0}
+.ff-sec{font-size:12px;font-weight:800;color:var(--primary);margin:14px 0 8px;padding-bottom:5px;border-bottom:1px dashed var(--line)}
+/* 日程頁航班簡化卡 */
+.item.flight{background:linear-gradient(135deg,var(--primary-soft),transparent 70%),var(--surface);border-left:4px solid var(--primary)}
+.fc-head{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--primary)}
+.fc-plane{transform:rotate(45deg)}
+.fc-no{font-weight:900}
+.fc-status{margin-left:auto;font-size:10.5px;font-weight:800}
+.fc-row{display:flex;align-items:center;gap:8px;margin-top:5px}
+.fc-col{display:flex;flex-direction:column;line-height:1.15}
+.fc-col.fc-r{align-items:flex-end;margin-left:auto}
+.fc-code{font-size:16px;font-weight:900;color:var(--text);letter-spacing:.5px}
+.fc-time{font-size:12.5px;font-weight:800;color:var(--accent3)}
+.fc-arrow{color:var(--muted);font-size:11px;transform:rotate(45deg)}
+.fc-ap{font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.3}
+@media (max-width:640px){
+  .fl-inner{padding:16px 12px calc(50px + env(safe-area-inset-bottom))}
+  .fl-code{font-size:22px} .fl-dt{font-size:17px}
+}
 
 /* ============ Modal ============ */
 .overlay{position:fixed;inset:0;background:rgba(30,28,22,.42);backdrop-filter:blur(2px);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
@@ -374,6 +427,7 @@ input,textarea,select{font-family:inherit}
     <div class="spacer"></div>
     <div class="tabs">
       <button class="tab active" data-tab="sched" onclick="switchTab('sched')">📅 日程</button>
+      <button class="tab" data-tab="flight" onclick="switchTab('flight')">✈ 航班</button>
       <button class="tab" data-tab="chk" onclick="switchTab('chk')">✓ Checklist</button>
     </div>
     <div class="mode-switch" id="modeSwitch">
@@ -393,6 +447,8 @@ input,textarea,select{font-family:inherit}
 
   <!-- 日程 -->
   <div id="schedPane" class="sched-scroll"></div>
+  <!-- 航班資訊 -->
+  <div id="flightPane" class="flight-wrap" hidden></div>
   <!-- Checklist -->
   <div id="chkPane" class="chk-wrap" hidden></div>
 </div>
@@ -574,8 +630,9 @@ function openTrip(id){
   document.getElementById('tripDate').textContent=`${fmtRange(t.startDate,t.endDate)} · ${dayCount(t.startDate,t.endDate)} 天`;
   const owner=(cloud && currentUser && t.owner===currentUser.email);
   document.getElementById('shareBtn').hidden=!owner;
+  cur.tab='sched';
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='sched'));
-  document.getElementById('schedPane').hidden=false; document.getElementById('chkPane').hidden=true;
+  document.getElementById('schedPane').hidden=false; document.getElementById('flightPane').hidden=true; document.getElementById('chkPane').hidden=true;
   setMode('view');
   renderSched();
 }
@@ -584,13 +641,14 @@ function switchTab(tab){
   cur.tab=tab;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
   document.getElementById('schedPane').hidden=(tab!=='sched');
+  document.getElementById('flightPane').hidden=(tab!=='flight');
   document.getElementById('chkPane').hidden=(tab!=='chk');
-  if(tab==='chk') renderChecklist(); else renderSched();
+  if(tab==='chk') renderChecklist(); else if(tab==='flight') renderFlights(); else renderSched();
 }
 function setMode(m){
   cur.mode=m;
   document.querySelectorAll('.mode-btn').forEach(b=>b.classList.toggle('active',b.dataset.m===m));
-  if(cur.tab==='sched') renderSched(); else renderChecklist();
+  if(cur.tab==='chk') renderChecklist(); else if(cur.tab==='flight') renderFlights(); else renderSched();
 }
 
 /* ================= 日程 grid ================= */
@@ -651,6 +709,7 @@ function renderSched(){
   pane.innerHTML=''; pane.appendChild(grid);
 }
 function renderItem(it,startIdx){
+  if(it.type==='flight') return renderFlightCard(it);
   const span=Math.min(it.spanSegments||1, SEGMENTS.length-(startIdx??SEGMENTS.indexOf(it.segment)));
   const box=document.createElement('div'); box.className='item'+(span>1?' tall':''); box.dataset.id=it.id;
   let html=`<div class="it-title">${esc(it.title)||'（未命名地點）'}</div>`;
@@ -670,6 +729,28 @@ function renderItem(it,startIdx){
     box.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',it.id);box.classList.add('dragging');});
     box.addEventListener('dragend',()=>box.classList.remove('dragging'));
     setupResize(box,it);
+  }
+  return box;
+}
+// 日程頁的航班簡化卡（圖5）：飛機圖示＋底色，只秀起降機場/時間/航班號/狀態
+function renderFlightCard(it){
+  const box=document.createElement('div'); box.className='item flight'; box.dataset.id=it.id;
+  const st=(it.status||'').trim();
+  const stChip=st?`<span class="fc-status" style="color:${statusColor(st)}">${esc(st)}</span>`:'';
+  box.innerHTML=`
+    <div class="fc-head"><span class="fc-plane">✈</span><span class="fc-no">${esc(flightTitle(it))}</span>${stChip}</div>
+    <div class="fc-row">
+      <div class="fc-col"><div class="fc-code">${esc(it.depCode||'—')}</div><div class="fc-time">${esc(it.depTime||'--:--')}</div></div>
+      <div class="fc-arrow">✈</div>
+      <div class="fc-col fc-r"><div class="fc-code">${esc(it.arrCode||'—')}</div><div class="fc-time">${esc(it.arrTime||'--:--')}</div></div>
+    </div>
+    ${(it.depName||it.arrName)?`<div class="fc-ap">${esc(it.depName||it.depCode||'')} → ${esc(it.arrName||it.arrCode||'')}</div>`:''}
+    ${cur.mode==='edit'?'<span class="grip" title="拖曳移動">⠿</span>':''}`;
+  box.onclick=()=>{ if(cur.mode==='edit') editFlight(it.id); else viewFlight(it.id); };
+  if(cur.mode==='edit'){
+    box.draggable=true;
+    box.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',it.id);box.classList.add('dragging');});
+    box.addEventListener('dragend',()=>box.classList.remove('dragging'));
   }
   return box;
 }
@@ -1035,6 +1116,144 @@ function addChk(cat){ const cl=ensureCL(); cl[cat].push({text:'新項目',checke
 function editChk(cat,i,txt){ const cl=ensureCL(); if(cl[cat][i]){cl[cat][i].text=txt.trim();save();} }
 function toggleChk(cat,i,val){ const cl=ensureCL(); if(cl[cat][i]){cl[cat][i].checked=val;save();renderChecklist();} }
 function delChk(cat,i){ const cl=ensureCL(); cl[cat].splice(i,1); save(); renderChecklist(); }
+
+/* ================= 航班資訊 ================= */
+// 起飛時刻 → 日程時段（僅決定航班卡「初始」落點，之後可在日程自由拖曳覆蓋）
+function segByTime(hhmm){
+  const m=/^(\d{1,2}):(\d{2})/.exec(hhmm||''); const min=m?(+m[1])*60+(+m[2]):9*60;
+  const T=[[420,'早餐前'],[540,'早餐'],[690,'早上'],[810,'午餐'],[900,'下午茶'],[1050,'下午'],[1170,'晚餐'],[1380,'晚上']];
+  for(const [lim,seg] of T){ if(min<lim) return seg; }
+  return '住宿';
+}
+function flightItems(id){ return (state.items[id]||[]).filter(x=>x.type==='flight'); }
+function flightTitle(it){ return (it.flightNo||'').trim() || `${(it.depCode||'?')}→${(it.arrCode||'?')}`; }
+function statusColor(s){ s=(s||'').trim();
+  if(/延誤|delay|取消|cancel/i.test(s)) return 'var(--accent3)';
+  if(/準點|準時|on.?time|正常/i.test(s)) return 'var(--accent2)';
+  return 'var(--muted)'; }
+function fmtFDate(d){ if(!d)return''; const x=new Date(d+'T00:00:00'); if(isNaN(x))return esc(d); return `${x.getFullYear()}/${x.getMonth()+1}/${x.getDate()} (${WD[x.getDay()]})`; }
+
+function renderFlights(){
+  const pane=document.getElementById('flightPane');
+  const editing=(cur.mode==='edit');
+  const list=flightItems(cur.tripId).slice().sort((a,b)=>((a.depDate||'')+ (a.depTime||'')).localeCompare((b.depDate||'')+(b.depTime||'')));
+  let html='<div class="fl-inner">';
+  html+=`<div class="fl-tools">
+      <div class="fl-hint">✈ 航班資訊${editing?'':'（切換到 ✏️ 編輯模式可新增/修改）'}</div>
+      ${editing?'<button class="btn primary sm" onclick="editFlight(null)">＋ 新增航班</button>':''}
+    </div>`;
+  if(!list.length){
+    html+=`<div class="fl-empty">尚無航班。${editing?'點「＋ 新增航班」開始輸入。':'切到編輯模式即可新增。'}</div>`;
+  } else {
+    list.forEach(it=>{ html+=flCard(it,editing); });
+  }
+  html+='</div>';
+  pane.innerHTML=html;
+}
+function flCard(it,editing){
+  const st=(it.status||'').trim();
+  const stChip=st?`<span class="fl-status" style="color:${statusColor(st)};border-color:${statusColor(st)}">${esc(st)}</span>`:'';
+  const meta=[]; if(it.duration)meta.push('🕐 '+esc(it.duration));
+  if(it.gate)meta.push('登機門 '+esc(it.gate)); if(it.seat)meta.push('座位 '+esc(it.seat));
+  if(it.baggage)meta.push('行李 '+esc(it.baggage));
+  const acts=editing?`<div class="fl-acts"><button class="fl-x" title="編輯" onclick="editFlight('${it.id}')">✏️</button><button class="fl-x" title="刪除" onclick="delFlight('${it.id}')">🗑</button></div>`:'';
+  return `<div class="fl-card">
+    <div class="fl-top"><span class="fl-no">✈ ${esc(flightTitle(it))}</span>${it.airline?`<span class="fl-air">${esc(it.airline)}</span>`:''}<div class="spacer"></div>${stChip}${acts}</div>
+    <div class="fl-route">
+      <div class="fl-end">
+        <div class="fl-code">${esc(it.depCode||'—')}</div>
+        <div class="fl-ap">${esc(it.depName||'')}${it.depTerminal?` · 航廈 ${esc(it.depTerminal)}`:''}</div>
+        <div class="fl-dt"><b>${esc(it.depTime||'--:--')}</b></div>
+        <div class="fl-day">${fmtFDate(it.depDate)}</div>
+      </div>
+      <div class="fl-mid"><div class="fl-line"><span class="fl-plane">✈</span></div>${it.duration?`<div class="fl-dur">${esc(it.duration)}</div>`:''}</div>
+      <div class="fl-end fl-arr">
+        <div class="fl-code">${esc(it.arrCode||'—')}</div>
+        <div class="fl-ap">${esc(it.arrName||'')}${it.arrTerminal?` · 航廈 ${esc(it.arrTerminal)}`:''}</div>
+        <div class="fl-dt"><b>${esc(it.arrTime||'--:--')}</b></div>
+        <div class="fl-day">${fmtFDate(it.arrDate)}</div>
+      </div>
+    </div>
+    ${meta.length?`<div class="fl-meta">${meta.join(' · ')}</div>`:''}
+    ${it.note?`<div class="fl-note">${esc(it.note)}</div>`:''}
+  </div>`;
+}
+function fInput(id,label,val,ph,type){ return `<label class="ff"><span>${label}</span><input id="fl_${id}" type="${type||'text'}" value="${esc(val||'')}" placeholder="${esc(ph||'')}"></label>`; }
+function editFlight(id){
+  const it=id?(state.items[cur.tripId]||[]).find(x=>x.id===id):null;
+  const v=it||{};
+  const statuses=['','準點','延誤','取消'];
+  const stOpts=statuses.map(s=>`<option value="${s}" ${((v.status||'')===s)?'selected':''}>${s||'（未設定）'}</option>`).join('');
+  openModal(`
+    <div class="modal-head"><div><h2>✈ ${id?'編輯':'新增'}航班</h2><div class="sub">紅色為關鍵資訊（日期／時間）</div></div>
+      <button class="close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div class="ff-row">${fInput('airline','航空公司',v.airline,'如：長榮航空')}${fInput('flightNo','航班號 *',v.flightNo,'如：BR867')}</div>
+      <label class="ff"><span>狀態</span><select id="fl_status">${stOpts}</select></label>
+      <div class="ff-sec">出發</div>
+      <div class="ff-row">${fInput('depCode','機場代碼',v.depCode,'TPE')}${fInput('depTerminal','航廈',v.depTerminal,'2')}</div>
+      ${fInput('depName','機場名稱',v.depName,'台灣桃園國際機場')}
+      <div class="ff-row">${fInput('depDate','出發日期',v.depDate,'','date')}${fInput('depTime','出發時間',v.depTime,'','time')}</div>
+      <div class="ff-sec">抵達</div>
+      <div class="ff-row">${fInput('arrCode','機場代碼',v.arrCode,'HKG')}${fInput('arrTerminal','航廈',v.arrTerminal,'1')}</div>
+      ${fInput('arrName','機場名稱',v.arrName,'香港國際機場')}
+      <div class="ff-row">${fInput('arrDate','抵達日期',v.arrDate,'','date')}${fInput('arrTime','抵達時間',v.arrTime,'','time')}</div>
+      <div class="ff-sec">其他（選填）</div>
+      <div class="ff-row">${fInput('duration','飛行時間',v.duration,'1h 50m')}${fInput('gate','登機門',v.gate,'46')}</div>
+      <div class="ff-row">${fInput('seat','座位',v.seat,'2A')}${fInput('baggage','行李轉盤',v.baggage,'7')}</div>
+      ${fInput('note','備註',v.note,'前序航班、轉機提醒…')}
+    </div>
+    <div class="modal-foot">${id?`<button class="btn danger" onclick="delFlight('${id}')">刪除</button>`:''}<div class="spacer"></div>
+      <button class="btn ghost" onclick="closeModal()">取消</button>
+      <button class="btn primary" onclick="saveFlight('${id||''}')">儲存航班</button></div>`);
+}
+function saveFlight(id){
+  const g=k=>{const el=document.getElementById('fl_'+k);return el?el.value.trim():'';};
+  const flightNo=g('flightNo');
+  if(!flightNo && !g('depCode') && !g('arrCode')){ toast('請至少填航班號或起降機場'); return; }
+  const items=state.items[cur.tripId]||(state.items[cur.tripId]=[]);
+  let it=id?items.find(x=>x.id===id):null;
+  const isNew=!it;
+  if(isNew){ it={id:'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,6), type:'flight'}; }
+  Object.assign(it,{
+    type:'flight', airline:g('airline'), flightNo:flightNo, status:g('status'),
+    depCode:g('depCode').toUpperCase(), depName:g('depName'), depTerminal:g('depTerminal'), depDate:g('depDate'), depTime:g('depTime'),
+    arrCode:g('arrCode').toUpperCase(), arrName:g('arrName'), arrTerminal:g('arrTerminal'), arrDate:g('arrDate'), arrTime:g('arrTime'),
+    duration:g('duration'), gate:g('gate'), seat:g('seat'), baggage:g('baggage'), note:g('note')
+  });
+  it.title=flightTitle(it);
+  if(isNew){ autoAssignFlight(it); items.push(it); }
+  save(); closeModal(); renderFlights();
+  toast(isNew?'已新增航班，並帶入日程對應時段':'已更新航班');
+}
+// 依出發日期 + 起飛時刻，決定航班卡在日程的初始落點（天 + 時段）
+function autoAssignFlight(it){
+  const t=state.trips.find(x=>x.id===cur.tripId); const days=t?tripDays(t):[];
+  let day=it.depDate;
+  if(!day || !days.includes(day)) day=days[0]||it.depDate||'';   // 不在行程日期內 → 放第一天
+  it.dayDate=day; it.segment=segByTime(it.depTime);
+  const same=(state.items[cur.tripId]||[]).filter(x=>x.dayDate===it.dayDate&&x.segment===it.segment);
+  it.orderInSegment=same.length; it.spanSegments=1;
+}
+function delFlight(id){
+  const items=state.items[cur.tripId]||[]; const it=items.find(x=>x.id===id); if(!it)return;
+  confirmModal('刪除航班？',`將移除航班「${esc(flightTitle(it))}」，日程上的對應卡片也會一併移除。`,()=>{
+    state.items[cur.tripId]=items.filter(x=>x.id!==id);
+    save(); closeModal();
+    if(cur.tab==='flight') renderFlights(); else renderSched();
+    toast('已刪除航班');
+  },'確定刪除');
+}
+function viewFlight(id){
+  const it=(state.items[cur.tripId]||[]).find(x=>x.id===id); if(!it)return;
+  openModal(`
+    <div class="modal-head"><div><h2>✈ ${esc(flightTitle(it))}</h2><div class="sub">${esc(it.airline||'')}</div></div>
+      <button class="close" onclick="closeModal()">×</button></div>
+    <div class="modal-body">${flCard(it,false)}</div>
+    <div class="modal-foot"><div class="spacer"></div>
+      ${cur.mode==='edit'?`<button class="btn" onclick="editFlight('${it.id}')">編輯</button>`:''}
+      <button class="btn primary" onclick="closeModal()">關閉</button></div>`);
+}
 
 /* ================= Modal / Toast 基礎 ================= */
 function openModal(html){document.getElementById('modal').innerHTML=html;document.getElementById('overlay').classList.add('show');}
