@@ -239,9 +239,9 @@ input,textarea,select{font-family:inherit}
 .fc-col.fc-r{align-items:flex-end}
 .fc-code{font-size:16px;font-weight:900;color:var(--text);letter-spacing:.5px}
 .fc-time{font-size:12.5px;font-weight:800;color:var(--accent3)}
-.fc-arrowline{position:relative;flex:1;height:14px;margin:0 6px}
-.fc-arrowline::before{content:'';position:absolute;left:0;right:0;top:6.25px;height:1.5px;background:var(--muted);opacity:.8}
-.fc-arrowline::after{content:'✈';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--surface);padding:0 4px;color:var(--primary);font-size:12px;line-height:1}
+.fc-arrowline{display:flex;align-items:center;flex:1;height:14px;margin:0 6px}
+.fc-arrowline::before,.fc-arrowline::after{content:'';flex:1;height:1.5px;background:var(--muted);opacity:.8}
+.fc-arrowline span{padding:0 4px;color:var(--primary);font-size:12px;line-height:1}
 @media (max-width:640px){
   .fl-inner{padding:16px 12px calc(50px + env(safe-area-inset-bottom))}
   .fl-code{font-size:22px} .fl-dt{font-size:22px} .fl-day{font-size:13px}
@@ -739,7 +739,7 @@ function renderFlightCard(it){
     <div class="fc-head"><span class="fc-plane">✈</span><span class="fc-no">${esc(flightTitle(it))}</span></div>
     <div class="fc-row">
       <div class="fc-col"><div class="fc-code">${esc(it.depCode||'—')}</div><div class="fc-time">${esc(it.depTime||'--:--')}</div></div>
-      <div class="fc-arrowline"></div>
+      <div class="fc-arrowline"><span>✈</span></div>
       <div class="fc-col fc-r"><div class="fc-code">${esc(it.arrCode||'—')}</div><div class="fc-time">${esc(it.arrTime||'--:--')}</div></div>
     </div>
     ${cur.mode==='edit'?'<span class="grip" title="拖曳移動">⠿</span>':''}`;
