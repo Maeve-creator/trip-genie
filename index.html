@@ -183,6 +183,11 @@ input,textarea,select{font-family:inherit}
 .chk-item .x:hover{background:#fbeae7;color:#c0392b}
 .chk-add{margin-top:8px;width:100%;border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:8px;padding:6px;font-size:13px;font-weight:700}
 .chk-add:hover{border-color:var(--primary);color:var(--primary)}
+.chk-tools{display:flex;flex-wrap:wrap;align-items:center;gap:14px;justify-content:space-between;margin-bottom:18px;padding:12px 16px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-sm)}
+.chk-tools .grp{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.chk-tools label{font-size:13.5px;font-weight:700;color:var(--primary)}
+.chk-tools select{border:1px solid var(--line);background:var(--bg);color:var(--text);padding:7px 10px;border-radius:9px;font-size:13.5px;max-width:210px;cursor:pointer}
+.chk-tools select:disabled{opacity:.55;cursor:default}
 
 /* ============ Modal ============ */
 .overlay{position:fixed;inset:0;background:rgba(30,28,22,.42);backdrop-filter:blur(2px);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
@@ -288,6 +293,10 @@ input,textarea,select{font-family:inherit}
 
   .chk-wrap{padding:18px 14px calc(50px + env(safe-area-inset-bottom))}
   .chk-grid{grid-template-columns:1fr;gap:14px}
+  .chk-tools{flex-direction:column;align-items:stretch}
+  .chk-tools .grp{width:100%}
+  .chk-tools select{flex:1;max-width:none}
+  .chk-tools .grp .btn,.chk-tools>.btn{justify-content:center}
 
   .overlay{padding:14px 10px}
   .modal{max-width:none}
@@ -950,9 +959,26 @@ function viewItem(id){
 function renderChecklist(){
   const cl=state.checklist[cur.tripId]||blankChecklist();
   const pane=document.getElementById('chkPane');
+  const editing=(cur.mode==='edit');
+  pane.innerHTML='';
+  // 編輯模式工具列：複製他趟清單（附加匯入）＋ 一鍵清除所有勾選
+  if(editing){
+    const others=state.trips.filter(t=>t.id!==cur.tripId);
+    const opts=others.map(t=>`<option value="${esc(t.id)}">${esc(t.name)||'（未命名行程）'}</option>`).join('');
+    const tools=document.createElement('div'); tools.className='chk-tools';
+    tools.innerHTML=`
+      <div class="grp">
+        <label>📋 複製既有行程清單</label>
+        <select id="chkCopyFrom" ${others.length?'':'disabled'}>
+          <option value="">${others.length?'選擇來源行程…':'（沒有其他行程）'}</option>${opts}
+        </select>
+        <button class="btn sm" onclick="doCopyChecklist()" ${others.length?'':'disabled'}>附加匯入</button>
+      </div>
+      <button class="btn sm ghost" onclick="clearAllChecked()">🧹 清除所有已勾選</button>`;
+    pane.appendChild(tools);
+  }
   const grid=document.createElement('div'); grid.className='chk-grid';
   const ICON={'重要事項':'📌','個人衣物':'👕','盥洗用品':'🧴','3C產品':'🔌','個人藥物':'💊','其他':'🎒'};
-  const editing=(cur.mode==='edit');
   CHK_CATS.forEach(cat=>{
     const box=document.createElement('div'); box.className='chk-cat';
     let items='';
@@ -967,7 +993,34 @@ function renderChecklist(){
     box.innerHTML=`<h3>${ICON[cat]||''} ${cat}</h3>${items||(editing?'':'<div style="color:var(--muted);font-size:13px;padding:4px 0">（無項目）</div>')}${addBtn}`;
     grid.appendChild(box);
   });
-  pane.innerHTML=''; pane.appendChild(grid);
+  pane.appendChild(grid);
+}
+function doCopyChecklist(){
+  const sel=document.getElementById('chkCopyFrom'); if(!sel) return;
+  const srcId=sel.value;
+  if(!srcId){ toast('請先選擇來源行程'); return; }
+  copyChecklistFrom(srcId);
+}
+function copyChecklistFrom(srcId){
+  const src=state.checklist[srcId];
+  const t=state.trips.find(x=>x.id===srcId);
+  const nm=(t&&t.name)||'該行程';
+  if(!src){ toast(`「${nm}」沒有清單資料`); return; }
+  const dst=ensureCL();
+  let n=0;
+  CHK_CATS.forEach(cat=>{ (src[cat]||[]).forEach(item=>{ dst[cat].push({text:item.text, checked:false}); n++; }); });
+  if(!n){ toast(`「${nm}」清單是空的`); return; }
+  save(); renderChecklist();
+  toast(`已從「${nm}」附加匯入 ${n} 個項目`);
+}
+function clearAllChecked(){
+  const cl=ensureCL();
+  let n=0; CHK_CATS.forEach(cat=>(cl[cat]||[]).forEach(item=>{ if(item.checked) n++; }));
+  if(!n){ toast('目前沒有已勾選的項目'); return; }
+  confirmModal('清除所有已勾選？',`將把此行程 Checklist 內 ${n} 個已勾選項目全部取消勾選（項目本身保留）。`,()=>{
+    CHK_CATS.forEach(cat=>(cl[cat]||[]).forEach(item=>{ item.checked=false; }));
+    save(); renderChecklist(); toast(`已清除 ${n} 個勾選`);
+  },'確定清除');
 }
 function ensureCL(){ if(!state.checklist[cur.tripId])state.checklist[cur.tripId]=blankChecklist(); return state.checklist[cur.tripId]; }
 function addChk(cat){ const cl=ensureCL(); cl[cat].push({text:'新項目',checked:false}); save(); renderChecklist(); }
@@ -979,11 +1032,11 @@ function delChk(cat,i){ const cl=ensureCL(); cl[cat].splice(i,1); save(); render
 function openModal(html){document.getElementById('modal').innerHTML=html;document.getElementById('overlay').classList.add('show');}
 function closeModal(){ document.getElementById('overlay').classList.remove('show'); }
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeModal();});
-function confirmModal(title,msg,onYes){
+function confirmModal(title,msg,onYes,yesLabel){
   openModal(`<div class="modal-head"><h2>${title}</h2><button class="close" onclick="closeModal()">×</button></div>
     <div class="modal-body"><div style="font-size:14px;line-height:1.6;color:var(--muted)">${msg}</div></div>
     <div class="modal-foot"><div class="spacer"></div><button class="btn ghost" onclick="closeModal()">取消</button>
-    <button class="btn danger" id="cfmYes">確定刪除</button></div>`);
+    <button class="btn danger" id="cfmYes">${esc(yesLabel||'確定刪除')}</button></div>`);
   document.getElementById('cfmYes').onclick=()=>{closeModal();onYes();};
 }
 let toastT;
