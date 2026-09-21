@@ -461,7 +461,7 @@ input,textarea,select{font-family:inherit}
 <script>
 /* ================= 資料層 (Phase 1: localStorage) ================= */
 const LS_KEY='travelPlanner_v1';
-const SEGMENTS=['早餐前','早餐','早上','午餐','下午茶','下午','晚餐','晚上','住宿','備案'];
+const SEGMENTS=['早餐','早上','午餐','下午茶','下午','晚餐','晚上','住宿','備案'];
 const ALT_SEG='備案';   // 備案欄：位於最末段，與正式行程共用 CRUD／拖曳，可互相升降級
 const CHK_CATS=['重要事項','個人衣物','盥洗用品','3C產品','個人藥物','其他'];
 const WD=['日','一','二','三','四','五','六'];
@@ -1119,7 +1119,7 @@ function delChk(cat,i){ const cl=ensureCL(); cl[cat].splice(i,1); save(); render
 // 起飛時刻 → 日程時段（僅決定航班卡「初始」落點，之後可在日程自由拖曳覆蓋）
 function segByTime(hhmm){
   const m=/^(\d{1,2}):(\d{2})/.exec(hhmm||''); const min=m?(+m[1])*60+(+m[2]):9*60;
-  const T=[[420,'早餐前'],[540,'早餐'],[690,'早上'],[810,'午餐'],[900,'下午茶'],[1050,'下午'],[1170,'晚餐'],[1380,'晚上']];
+  const T=[[540,'早餐'],[690,'早上'],[810,'午餐'],[900,'下午茶'],[1050,'下午'],[1170,'晚餐'],[1380,'晚上']];
   for(const [lim,seg] of T){ if(min<lim) return seg; }
   return '住宿';
 }
@@ -1334,7 +1334,7 @@ function buildSnapshotHTML(t,items,checklist,photos,forPrint){
     const lis=arr.map(x=>`<li class="${x.checked?'done':''}"><span class="box">${x.checked?'☑':'☐'}</span><span class="t">${esc(x.text)}</span></li>`).join('');
     return `<div class="chk-cat"><h3>${CHK_ICON[cat]||''} ${esc(cat)}</h3><ul>${lis}</ul></div>`;
   }).join('');
-  const chkHtml=chkCats?`<section class="checklist"><h2 class="sec-h">🧳 行前 Checklist</h2><div class="chk-grid">${chkCats}</div></section>`:'';
+  const chkHtml='';  // 匯出不含 Checklist（Maeve 決策 2026-09-21）
 
   const printScript=forPrint?'<script>window.addEventListener("load",function(){setTimeout(function(){window.print();},350);});<\/script>':'';
 
