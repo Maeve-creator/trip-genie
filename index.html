@@ -1170,6 +1170,31 @@ function flCard(it,editing){
     ${it.note?`<div class="fl-note">${esc(it.note)}</div>`:''}
   </div>`;
 }
+// 匯出用靜態航班卡：起降代碼/機場/時間為主，航班號＋航空公司置底（純靜態、email/列印安全）
+function flightSnapCard(it){
+  const depAp=[esc(it.depName||''),it.depTerminal?`航廈 ${esc(it.depTerminal)}`:''].filter(Boolean).join(' · ');
+  const arrAp=[esc(it.arrName||''),it.arrTerminal?`航廈 ${esc(it.arrTerminal)}`:''].filter(Boolean).join(' · ');
+  const foot=[]; if(it.gate)foot.push('登機門 '+esc(it.gate)); if(it.seat)foot.push('座位 '+esc(it.seat)); if(it.baggage)foot.push('行李 '+esc(it.baggage));
+  return `<article class="card fl-snap">
+    <div class="fl-s-route">
+      <div class="fl-s-end">
+        <div class="fl-s-code">${esc(it.depCode||'—')}</div>
+        <div class="fl-s-time">${esc(it.depTime||'--:--')}</div>
+        ${depAp?`<div class="fl-s-ap">${depAp}</div>`:''}
+        <div class="fl-s-day">${fmtFDate(it.depDate)}</div>
+      </div>
+      <div class="fl-s-mid"><span class="pl">✈</span>${it.duration?`<div class="fl-s-dur">${esc(it.duration)}</div>`:''}</div>
+      <div class="fl-s-end fl-s-arr">
+        <div class="fl-s-code">${esc(it.arrCode||'—')}</div>
+        <div class="fl-s-time">${esc(it.arrTime||'--:--')}</div>
+        ${arrAp?`<div class="fl-s-ap">${arrAp}</div>`:''}
+        <div class="fl-s-day">${fmtFDate(it.arrDate)}</div>
+      </div>
+    </div>
+    <div class="fl-s-foot">✈ ${esc(flightTitle(it))}${it.airline?` <span class="fl-s-sub">· ${esc(it.airline)}</span>`:''}${foot.length?` <span class="fl-s-sub">· ${foot.join(' · ')}</span>`:''}</div>
+    ${it.note?`<div class="fl-s-note">${esc(it.note)}</div>`:''}
+  </article>`;
+}
 function fInput(id,label,val,ph,type){ return `<label class="ff"><span>${label}</span><input id="fl_${id}" type="${type||'text'}" value="${esc(val||'')}" placeholder="${esc(ph||'')}"></label>`; }
 function editFlight(id){
   const it=id?(state.items[cur.tripId]||[]).find(x=>x.id===id):null;
@@ -1306,6 +1331,7 @@ function buildSnapshotHTML(t,items,checklist,photos,forPrint){
       if(!list.length) return '';
       const isMeal=MEALS.includes(seg);
       const cards=list.map(it=>{
+        if(it.type==='flight') return flightSnapCard(it);
         const span=it.spanSegments||1;
         const si=SEGMENTS.indexOf(it.segment);
         const spanNote=span>1?` <span class="span-note">↕ ${esc(SEGMENTS[si])}－${esc(SEGMENTS[Math.min(si+span-1,SEGMENTS.length-1)])}</span>`:'';
@@ -1370,6 +1396,20 @@ body{padding:24px 18px 60px}
 .c-meta a{color:var(--primary);text-decoration:none;font-weight:600}
 .c-photo{flex:none;width:150px}
 .c-photo img{width:150px;height:110px;object-fit:cover;border-radius:10px;display:block;border:1px solid var(--line)}
+.fl-snap{flex-direction:column;gap:0;align-items:stretch;border-left:4px solid var(--primary)}
+.fl-s-route{display:flex;align-items:flex-start;gap:8px;width:100%}
+.fl-s-end{flex:1;min-width:0}
+.fl-s-arr{text-align:right}
+.fl-s-code{font-size:22px;font-weight:800;color:var(--primary);letter-spacing:.5px;line-height:1.1}
+.fl-s-time{font-size:16px;font-weight:800;color:var(--accent3);margin-top:2px}
+.fl-s-ap{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.35}
+.fl-s-day{font-size:12px;color:var(--muted);margin-top:2px}
+.fl-s-mid{flex:none;min-width:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:6px}
+.fl-s-mid .pl{font-size:17px;color:var(--primary);line-height:1}
+.fl-s-dur{font-size:11px;color:var(--muted);margin-top:4px;white-space:nowrap}
+.fl-s-foot{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line);font-size:14px;font-weight:800;color:var(--text)}
+.fl-s-foot .fl-s-sub{font-weight:600;color:var(--muted)}
+.fl-s-note{font-size:12.5px;color:var(--muted);margin-top:6px;white-space:pre-wrap}
 .day-empty{font-size:13px;color:var(--muted);padding:2px 0 8px}
 .sec-h{font-size:19px;color:var(--primary);margin:30px 0 14px;padding-bottom:8px;border-bottom:2px solid var(--line)}
 .chk-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
