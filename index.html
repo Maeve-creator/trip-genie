@@ -1323,7 +1323,7 @@ function buildSnapshotHTML(t,items,checklist,photos,forPrint){
   const exportedAt=now.getFullYear()+'/'+(now.getMonth()+1)+'/'+now.getDate();
 
   // 逐日 → 逐段（只列有內容的段，依 SEGMENTS 順序）
-  const daysHtml=days.map(dt=>{
+  const daysHtml=days.map((dt,di)=>{
     const dd=new Date(dt+'T00:00:00');
     const dayLabel=(dd.getMonth()+1)+'/'+dd.getDate()+' ('+WD[dd.getDay()]+')';
     const segsHtml=SEGMENTS.map(seg=>{
@@ -1350,8 +1350,20 @@ function buildSnapshotHTML(t,items,checklist,photos,forPrint){
       return `<div class="seg${isMeal?' meal':''}"><div class="seg-name">${esc(seg)}</div><div class="seg-cards">${cards}</div></div>`;
     }).join('');
     const empty=segsHtml?'':'<div class="day-empty">（本日尚未安排行程）</div>';
-    return `<section class="day"><h2 class="day-h">${dayLabel}</h2>${segsHtml}${empty}</section>`;
+    return `<section class="day" id="day-${di}"><h2 class="day-h">${dayLabel}</h2>${segsHtml}${empty}</section>`;
   }).join('');
+
+  // 日期 Tab 導覽列（純 CSS :target 切換；當天深底、非當天淺底略小）
+  const dayTabs=days.map((dt,di)=>{
+    const dd=new Date(dt+'T00:00:00');
+    const lab=(dd.getMonth()+1)+'/'+dd.getDate()+' ('+WD[dd.getDay()]+')';
+    return `<a class="dtab" href="#day-${di}">${lab}</a>`;
+  }).join('');
+  // 每天一條「選中則該 Tab 變深底」規則＋預設（無 target）第一個 Tab 深底
+  const ACTIVE_DECL='background:var(--primary);color:#fff;border-color:var(--primary);font-size:14px;padding:6px 14px';
+  const tabActiveCss=days.map((_,di)=>`body:has(#day-${di}:target) .dtab[href="#day-${di}"]{${ACTIVE_DECL}}`).join('')
+    +`body:not(:has(.day:target)) .day-tabs .dtab:first-child{${ACTIVE_DECL}}`;
+  const tabsNav=days.length>1?`<nav class="day-tabs">${dayTabs}</nav>`:'';
 
   // Checklist（靜態勾選，☑/☐；只列有項目的類別）
   const cl=checklist||{};
@@ -1421,6 +1433,12 @@ body{padding:24px 18px 60px}
 .chk-cat li.done .t{text-decoration:line-through;color:var(--muted)}
 .doc-foot{margin-top:34px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);text-align:center}
 .doc-foot a{color:var(--primary)}
+.day-tabs{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;flex-wrap:wrap;gap:6px;padding:9px 0 10px;margin-bottom:16px;border-bottom:2px solid var(--line)}
+.dtab{font-size:12.5px;font-weight:700;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 11px;text-decoration:none;white-space:nowrap;line-height:1.2}
+.dtab:hover{border-color:var(--primary);color:var(--primary)}
+.day{scroll-margin-top:64px}
+body:has(.day:target) .day:not(:target){display:none}
+${tabActiveCss}
 @media (max-width:560px){
   .card{flex-direction:column}
   .c-photo,.c-photo img{width:100%}
@@ -1433,6 +1451,8 @@ body{padding:24px 18px 60px}
   @page{margin:14mm}
   .card,.chk-cat,.day{box-shadow:none}
   .doc-foot{page-break-inside:avoid}
+  .day-tabs{display:none!important}
+  .day,body:has(.day:target) .day:not(:target){display:block!important}
 }
 </style>
 </head>
@@ -1443,6 +1463,7 @@ body{padding:24px 18px 60px}
   <h1>${esc(t.name||'行程表')}</h1>
   <div class="meta">${esc(fmtRange(t.startDate,t.endDate))} · ${dayCount(t.startDate,t.endDate)} 天 · 匯出於 ${exportedAt}</div>
 </header>
+${tabsNav}
 <main>
 ${daysHtml}
 ${chkHtml}
