@@ -1433,11 +1433,14 @@ body{padding:24px 18px 60px}
 .chk-cat li.done .t{text-decoration:line-through;color:var(--muted)}
 .doc-foot{margin-top:34px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);text-align:center}
 .doc-foot a{color:var(--primary)}
-.day-tabs{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;flex-wrap:wrap;gap:6px;padding:9px 0 10px;margin-bottom:16px;border-bottom:2px solid var(--line)}
+.day-tabs{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:9px 0 10px;margin-bottom:16px;border-bottom:2px solid var(--line)}
 .dtab{font-size:12.5px;font-weight:700;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 11px;text-decoration:none;white-space:nowrap;line-height:1.2}
 .dtab:hover{border-color:var(--primary);color:var(--primary)}
 .day{scroll-margin-top:64px}
-body:has(.day:target) .day:not(:target){display:none}
+/* 預設單日檢視：支援 :has() 的瀏覽器一開啟只顯示第一天，點 Tab 切到該天；不支援者(舊email)整段作廢→全部可見(安全) */
+body:has(.day) .day{display:none}
+body:has(.day):not(:has(.day:target)) #day-0{display:block}
+body:has(.day:target) .day:target{display:block}
 ${tabActiveCss}
 @media (max-width:560px){
   .card{flex-direction:column}
@@ -1452,7 +1455,7 @@ ${tabActiveCss}
   .card,.chk-cat,.day{box-shadow:none}
   .doc-foot{page-break-inside:avoid}
   .day-tabs{display:none!important}
-  .day,body:has(.day:target) .day:not(:target){display:block!important}
+  .day{display:block!important}
 }
 </style>
 </head>
