@@ -112,6 +112,30 @@ input,textarea,select{font-family:inherit}
 .add-card:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-soft)}
 .add-card .plus{font-size:34px;line-height:1;font-weight:300}
 .empty-hint{color:var(--muted);font-size:14px;padding:40px 0;text-align:center}
+/* 範例行程卡：虛線框＋斜紋淡化封面＋「範例」標籤，一眼看出不是自己的行程 */
+.trip-card.sample{border:2px dashed var(--accent);box-shadow:none;background:var(--surface)}
+.trip-card.sample:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.trip-card.sample .cover{background:repeating-linear-gradient(135deg,rgba(255,255,255,.22) 0 10px,transparent 10px 20px),linear-gradient(135deg,var(--primary),var(--accent2));opacity:.72}
+.trip-card.sample .tmeta b{color:var(--accent);font-weight:700}
+.smp-tag{position:absolute;left:12px;top:10px;background:#fff;color:var(--accent);font-size:12px;font-weight:900;letter-spacing:2px;padding:3px 10px;border-radius:999px;box-shadow:var(--shadow-sm)}
+.smp-hide{position:absolute;top:8px;right:8px;border:none;background:rgba(255,255,255,.92);color:var(--text);font-size:12px;font-weight:700;padding:5px 10px;border-radius:999px;box-shadow:var(--shadow-sm);z-index:1}
+.smp-hide:hover{background:#fff;color:var(--accent)}
+.mobile-only{display:none}
+.link-btn{border:none;background:none;color:var(--primary);font-size:13px;font-weight:700;text-decoration:underline;text-underline-offset:3px;margin-left:6px;padding:0}
+/* 範例行程內頁提示條 */
+.sample-bar{flex:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 22px;background:var(--accent-soft);border-bottom:1px dashed var(--accent);font-size:13px;color:var(--text);position:relative;z-index:30}
+.sample-bar span{flex:1;min-width:220px;line-height:1.5}
+/* 使用導覽（聚光燈） */
+#tour{position:fixed;inset:0;z-index:180}
+#tour .tour-catch{position:absolute;inset:0}
+#tour .tour-hole{position:fixed;border-radius:12px;box-shadow:0 0 0 200vmax rgba(24,22,16,.58);outline:2px solid #fff;outline-offset:0;transition:all .28s ease;pointer-events:none}
+#tour .tour-pop{position:fixed;background:var(--surface);border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.3);padding:16px 16px 12px;transition:top .28s ease,left .28s ease;animation:pop .2s ease}
+.tp-step{font-size:11.5px;font-weight:800;color:var(--accent);letter-spacing:.5px;margin-bottom:4px}
+.tp-title{font-size:16px;font-weight:800;margin-bottom:6px;color:var(--text)}
+.tp-body{font-size:13.5px;line-height:1.65;color:var(--text)}
+.tp-body b{color:var(--primary)}
+.tp-foot{display:flex;align-items:center;gap:6px;margin-top:14px;flex-wrap:wrap}
+.tp-foot .spacer{flex:1}
 
 /* ============ 行程內頁 ============ */
 .trip-head{background:var(--surface);border-bottom:1px solid var(--line);padding:12px 22px;display:flex;align-items:center;gap:14px;flex:none;position:relative;z-index:40;box-shadow:var(--shadow-sm);flex-wrap:wrap}
@@ -319,6 +343,9 @@ input,textarea,select{font-family:inherit}
   .user-chip{gap:5px}
   .user-chip .uemail{display:none}                   /* email 太長，手機隱藏 */
   #adminBtn .btn-label{display:none}                  /* 只留 🔑，省空間 */
+  .mobile-only{display:inline}                        /* 手機頂列空間不足：導覽入口改放首頁標題下方 */
+  .sample-bar{padding:7px 12px;font-size:12px;gap:6px}
+  .sample-bar span{min-width:100%}
   .desktop-only{display:none!important}               /* 安裝APP鍵手機不顯示，改用登入後自動彈窗引導 */
   .topbar .btn{white-space:nowrap}                    /* 防「登出」被壓成直排 */
 
@@ -403,6 +430,7 @@ input,textarea,select{font-family:inherit}
     <button class="theme-btn" data-t="city"><span class="dot"></span><span class="tlabel">城市</span></button>
   </div>
   <div class="user-chip" id="userChip" hidden>
+    <button class="btn sm desktop-only" id="tourBtn" onclick="startTour()" title="使用導覽">❓<span class="btn-label"> 導覽</span></button>
     <button class="btn sm" id="adminBtn" onclick="openAdmin()" hidden>🔑<span class="btn-label"> 權限管理</span></button>
     <button class="btn sm desktop-only" id="installBtn" onclick="exportPWAGuide()">📱<span class="btn-label"> 安裝手機APP</span></button>
     <span class="uemail" id="uEmail" title=""></span>
@@ -413,7 +441,7 @@ input,textarea,select{font-family:inherit}
 <!-- 首頁 -->
 <div id="homeView" class="wrap">
   <div class="page-title">我的行程</div>
-  <div class="page-sub">點卡片進入規劃，或新增一趟新旅程 ✦</div>
+  <div class="page-sub">點卡片進入規劃，或新增一趟新旅程 ✦ <button class="link-btn" id="showSampleLink" onclick="showSample()" hidden>顯示範例行程</button><button class="link-btn mobile-only" onclick="startTour()">❓ 使用導覽</button></div>
   <div class="card-grid" id="cardGrid"></div>
 </div>
 
@@ -445,6 +473,12 @@ input,textarea,select{font-family:inherit}
       </div>
     </div>
   </div>
+  <!-- 範例行程提示條（只在範例行程顯示） -->
+  <div class="sample-bar" id="sampleBar" hidden>
+    <span>🧪 <b>範例行程</b>：可切到 ✏️ 編輯隨意試玩（新增／拖曳／改內容），<b>所有修改都不會儲存</b>，重新整理即還原。</span>
+    <button class="btn sm" onclick="startTour()">❓ 看導覽</button>
+    <button class="btn sm ghost" onclick="hideSample()">隱藏範例</button>
+  </div>
 
   <!-- 日程 -->
   <div id="schedPane" class="sched-scroll"></div>
@@ -466,6 +500,109 @@ const ALT_SEG='備案';   // 備案欄：位於最末段，與正式行程共用
 const CHK_CATS=['重要事項','個人衣物','盥洗用品','3C產品','個人藥物','其他'];
 const WD=['日','一','二','三','四','五','六'];
 const COVER_EMOJI=['🏖️','🏔️','🌆','🗺️','🧳','🌸','🍜','⛩️'];
+
+/* ================= 範例行程（內建靜態副本，只存在記憶體；絕不寫 Firestore／localStorage） ================= */
+// 底稿：Maeve 的 Okinawa 4 天 3 夜（2026-09-24 匯出版）微調＋去個人化（訂位資訊改通用提醒）；
+// 另加一張「跨時段長卡」與一張「備案」示範功能。使用者可切編輯試玩，重新整理即還原。
+const SAMPLE_ID='__sample__';
+function isSample(id){ return id===SAMPLE_ID; }
+let SAMPLE=null;   // {trip, items, checklist}；同一次 App 內的試玩修改留在這裡
+function buildSample(){
+  const G=c=>'https://maps.google.com/?cid='+c;
+  const D1='2026-10-25',D2='2026-10-26',D3='2026-10-27',D4='2026-10-28';
+  const HOTEL='17495634656863600054';
+  const rows=[
+    // [day, seg, title, desc, closedDay, hours, cid, span]
+    [D1,'晚上','單軌電車 旭橋站','出關後到國內線航廈 2F，走室內連通道到那霸機場站月台\n搭到旭橋站約 20 分鐘，東口出站走天橋約 5 分鐘','','','12890715489116755313'],
+    [D1,'晚上','Kushiyaki Can','肚子餓的話，飯店附近的人氣串燒居酒屋','無休','17:30-00:00','15066191785485086074'],
+    [D1,'住宿','沖繩縣廳前大和 ROYNET 飯店','連住 3 晚，離單軌站與國際通都近','','14:00 Check-in',HOTEL],
+    [D2,'早上','波上宮','早上來參拜祈福 (*ˊᵕˋ*)','無休','09:00-17:00','8604780068634698924'],
+    [D2,'早上','波之上海灘','波上宮後方的乾淨沙灘，順路散步','','','6358497946686522270'],
+    [D2,'午餐','久茂地そば KANEHACHI','道地沖繩麵','週日休','11:00-14:00','9274383246906085554'],
+    [D2,'下午茶','那霸巴士總站','下午 3 點多出發美國村，20/28/29/120 號線都有直達（約 1 小時）\n桑江站或美濱美國村入口站下車','','','8684747130877779877'],
+    [D2,'下午','Blue Seal Depot Island Seaside','沖繩國民冰淇淋海邊分店，推 blue wave／鹽餅乾／琉球奶茶','無休','11:00-21:00','4760697156490386413'],
+    [D2,'下午','American Depot','超大間美式復古小物＋古著店','無休','10:00-21:00','15358057924359731191'],
+    [D2,'下午','RANCH','可愛小白狗雜貨店','無休','11:00-20:00','2618922450135966833'],
+    [D2,'下午','Zhyvago Coffee Roastery','工業風咖啡甜點店，逛累了來坐','無休','07:00-22:00','15701480098693048403'],
+    [D2,'下午','桑江公車站','Yappari Steak 對面，20/28/29/120 都有到\n21:00 前搭車以免收班，車程約 1 小時','','','5141889377313219175'],
+    [D2,'晚餐','牛門 Gyumon','海膽和牛丼名店，熱門時段建議先線上訂位','無休','12:00-23:00','1704123251047723126'],
+    [D2,'住宿','沖繩縣廳前大和 ROYNET 飯店','','','',HOTEL],
+    [D2,'備案','國際通','☔ 雨天備案：室內商店街＋伴手禮一次買齊\n（備案欄的卡片可以拖回正式行程）','','','',1],
+    [D3,'早餐','那霸市第一牧志公設市場','1F 逛海鮮，2F 餐廳可代客料理','無休','08:00-22:00','12134031717300061400'],
+    [D3,'早上','DMM Kariyushi 水族館','可愛動物＋水族館，室內雨天也適合','無休','09:00-19:00','7956568257649095031'],
+    [D3,'午餐','iias 沖繩豐崎','直接在 mall 美食街吃，吃完順便逛\n（這張卡往下拉成「跨時段長卡」示範）','無休','10:00-22:00','1411058484026890325',2],
+    [D3,'下午','WALL WONDERCUBE','有點貴但很酷的選貨店','無休','12:00-20:00','2267626788588495527'],
+    [D3,'下午','Fishbowl 古著店','','無休','12:00-20:00','1434387367611028903'],
+    [D3,'下午','南洋幻想','超可愛 T 恤店','週三休','12:00-17:00','2954751464321013006'],
+    [D3,'晚餐','燒肉 琉球的牛 那霸久茂地','人氣燒肉，建議提前訂位','無休','16:30-23:00','14761283312840919727'],
+    [D3,'住宿','沖繩縣廳前大和 ROYNET 飯店','','','',HOTEL],
+  ];
+  const ord={}; const items=rows.map((r,i)=>{
+    const k=r[0]+'|'+r[1]; ord[k]=(ord[k]||0);
+    return {id:'smp'+i, title:r[2], desc:r[3], closedDay:r[4], hours:r[5], mapUrl:r[6]?G(r[6]):'',
+      dayDate:r[0], segment:r[1], orderInSegment:ord[k]++, spanSegments:r[7]||1, placeId:'', photoName:''};
+  });
+  items.push(
+    {id:'smpf1', type:'flight', title:'IT232', airline:'台灣虎航', flightNo:'IT232',
+     depCode:'TPE', depName:'台灣桃園國際機場', depTerminal:'1', depDate:D1, depTime:'18:20',
+     arrCode:'OKA', arrName:'沖繩那霸機場', arrTerminal:'', arrDate:D1, arrTime:'20:40',
+     duration:'1h 20m', gate:'', seat:'', baggage:'', note:'', dayDate:D1, segment:'晚餐', orderInSegment:0, spanSegments:1},
+    {id:'smpf2', type:'flight', title:'IT231', airline:'台灣虎航', flightNo:'IT231',
+     depCode:'OKA', depName:'沖繩那霸機場', depTerminal:'', depDate:D4, depTime:'09:45',
+     arrCode:'TPE', arrName:'台灣桃園國際機場', arrTerminal:'1', arrDate:D4, arrTime:'10:20',
+     duration:'1h 35m', gate:'', seat:'', baggage:'', note:'回程提早 2 小時到機場', dayDate:D4, segment:'早上', orderInSegment:0, spanSegments:1}
+  );
+  const C=(arr)=>arr.map(([text,checked])=>({text,checked:!!checked}));
+  const checklist={
+    '重要事項':C([['護照',1],['日圓現金＋信用卡',1],['網卡／eSIM'],['訂房確認信']]),
+    '個人衣物':C([['薄外套'],['泳衣（海灘用）']]),
+    '盥洗用品':C([['防曬乳'],['旅行裝盥洗包']]),
+    '3C產品':C([['行動電源',1],['充電線']]),
+    '個人藥物':C([['腸胃藥']]),
+    '其他':C([['折疊傘'],['購物袋']]),
+  };
+  const trip={id:SAMPLE_ID, name:'沖繩 4 天 3 夜', startDate:D1, endDate:D4, theme:'ocean', emoji:'🏝️', order:-1, owner:'', members:[], sample:true};
+  return {trip, items, checklist};
+}
+// 把範例掛進 state（state 被雲端快照整包重建後要再掛一次；先把使用者在範例裡的試玩修改收回來）
+function injectSample(prevItems, prevChk){
+  if(!SAMPLE) SAMPLE=buildSample();
+  if(prevItems) SAMPLE.items=prevItems;
+  if(prevChk) SAMPLE.checklist=prevChk;
+  state.trips=(state.trips||[]).filter(t=>!isSample(t.id));
+  state.trips.unshift(SAMPLE.trip);
+  state.items[SAMPLE_ID]=SAMPLE.items; state.checklist[SAMPLE_ID]=SAMPLE.checklist;
+}
+
+/* ================= 使用者偏好（隱藏範例／已看過導覽）：localStorage 立即生效＋Firestore prefs/{email} 跨裝置同步 ================= */
+let prefs={hideSample:false, tourDone:false};
+let prefsReadyResolve; const prefsReady=new Promise(r=>prefsReadyResolve=r);
+function prefsKey(){ return 'tripGenie_prefs_'+((currentUser&&currentUser.email)||'local'); }
+async function loadPrefs(){
+  try{ const p=JSON.parse(localStorage.getItem(prefsKey())); if(p) Object.assign(prefs,p); }catch(e){}
+  if(cloud && currentUser){
+    try{
+      const snap=await Promise.race([db.collection('prefs').doc(currentUser.email).get(), new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),4000))]);
+      if(snap && snap.exists){ const d=snap.data(); if(typeof d.hideSample==='boolean') prefs.hideSample=d.hideSample; if(typeof d.tourDone==='boolean') prefs.tourDone=d.tourDone;
+        try{ localStorage.setItem(prefsKey(),JSON.stringify(prefs)); }catch(e){} }
+    }catch(e){ console.warn('讀取雲端偏好失敗（尚未設定 prefs 規則時屬正常，改用本機記憶）',e.code||e.message); }
+  }
+  prefsReadyResolve();
+}
+function setPref(k,v){
+  prefs[k]=v;
+  try{ localStorage.setItem(prefsKey(),JSON.stringify(prefs)); }catch(e){}
+  if(cloud && currentUser){
+    db.collection('prefs').doc(currentUser.email).set({hideSample:prefs.hideSample, tourDone:prefs.tourDone, updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})
+      .catch(e=>console.warn('寫入雲端偏好失敗（改用本機記憶）',e.code||e.message));
+  }
+}
+function hideSample(){
+  setPref('hideSample',true);
+  if(cur.tripId && isSample(cur.tripId)) goHome(); else renderHome();
+  toast('已隱藏範例行程（首頁標題旁可再叫回）');
+}
+function showSample(){ setPref('hideSample',false); renderHome(); toast('範例行程已顯示'); }
 
 // Firebase 設定（公開金鑰，安全靠 Firestore 規則把關）
 const FB_CONFIG={
@@ -498,13 +635,20 @@ function loadLocal(){
   try{const s=JSON.parse(localStorage.getItem(LS_KEY)); if(s&&s.trips) return s;}catch(e){}
   return emptyState();
 }
-function saveLocal(){ try{localStorage.setItem(LS_KEY,JSON.stringify(state));}catch(e){console.warn(e);} }
+function saveLocal(){
+  try{
+    const items=Object.assign({},state.items), checklist=Object.assign({},state.checklist);
+    delete items[SAMPLE_ID]; delete checklist[SAMPLE_ID];   // 範例絕不落地
+    localStorage.setItem(LS_KEY,JSON.stringify({theme:state.theme, trips:state.trips.filter(t=>!isSample(t.id)), items, checklist}));
+  }catch(e){console.warn(e);}
+}
 function save(){
   if(applyingRemote) return;
   if(cur.tripId) scheduleTrip(cur.tripId);   // 只存目前開啟的那趟
   else if(!cloud) saveLocal();               // 首頁層在雲端由各 CRUD 直接寫；本機模式存 blob
 }
 function scheduleTrip(id){
+  if(isSample(id)) return;   // 範例行程：試玩修改只留在記憶體
   if(!cloud){ saveLocal(); return; }
   clearTimeout(saveTimers[id]); saveTimers[id]=setTimeout(()=>{ delete saveTimers[id]; persistTrip(id); },400);
 }
@@ -519,11 +663,13 @@ function tripDoc(t){
   };
 }
 function persistTrip(id){
+  if(isSample(id)) return;
   if(!cloud){ saveLocal(); return; }
   const t=state.trips.find(x=>x.id===id); if(!t) return;
   db.collection('trips').doc(id).set(tripDoc(t)).catch(e=>toast('儲存失敗：'+(e.code||e.message)));
 }
 function deleteTripDoc(id){
+  if(isSample(id)) return;
   if(!cloud){ saveLocal(); return; }
   db.collection('trips').doc(id).delete().catch(e=>toast('刪除失敗：'+(e.code||e.message)));
 }
@@ -546,7 +692,23 @@ document.getElementById('themeSwitch').addEventListener('click',e=>{
 /* ================= 首頁卡片牆 ================= */
 function renderHome(){
   const g=document.getElementById('cardGrid'); g.innerHTML='';
-  state.trips.forEach((t,i)=>{
+  // 範例行程卡（第一張；斜紋封面＋「範例」標籤＋虛線框，與真實行程明顯區隔）
+  const st=state.trips.find(x=>isSample(x.id));
+  const showSmp=document.getElementById('showSampleLink'); if(showSmp) showSmp.hidden=!(st && prefs.hideSample);
+  if(st && !prefs.hideSample){
+    const card=document.createElement('div'); card.className='trip-card sample';
+    card.onclick=()=>openTrip(st.id);
+    card.innerHTML=`
+      <div class="cover"><span class="smp-tag">範例</span><span class="emoji">${st.emoji}</span></div>
+      <button class="smp-hide" title="隱藏範例行程" onclick="event.stopPropagation();hideSample()">隱藏範例</button>
+      <div class="body">
+        <div class="tname">${esc(st.name)}</div>
+        <div class="tdate">🗓 ${fmtRange(st.startDate,st.endDate)}</div>
+        <div class="tmeta">${dayCount(st.startDate,st.endDate)} 天 · ${(state.items[st.id]||[]).length} 個行程 · <b>點進去隨意試玩，不會存檔</b></div>
+      </div>`;
+    g.appendChild(card);
+  }
+  state.trips.filter(t=>!isSample(t.id)).forEach((t,i)=>{
     const card=document.createElement('div'); card.className='trip-card';
     card.onclick=()=>openTrip(t.id);
     card.innerHTML=`
@@ -631,13 +793,14 @@ function openTrip(id){
   document.getElementById('tripDate').textContent=`${fmtRange(t.startDate,t.endDate)} · ${dayCount(t.startDate,t.endDate)} 天`;
   const owner=(cloud && currentUser && t.owner===currentUser.email);
   document.getElementById('shareBtn').hidden=!owner;
+  document.getElementById('sampleBar').hidden=!isSample(id);
   cur.tab='sched';
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab==='sched'));
   document.getElementById('schedPane').hidden=false; document.getElementById('flightPane').hidden=true; document.getElementById('chkPane').hidden=true;
   setMode('view');
   renderSched();
 }
-function goHome(){cur.tripId=null;document.getElementById('tripView').hidden=true;document.getElementById('homeView').hidden=false;renderHome();}
+function goHome(){cur.tripId=null;document.getElementById('sampleBar').hidden=true;document.getElementById('tripView').hidden=true;document.getElementById('homeView').hidden=false;renderHome();}
 function switchTab(tab){
   cur.tab=tab;
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
@@ -855,21 +1018,22 @@ function imgToJpegDataUrl(src,maxW,q){
 // 代表圖快照：獨立子文件 trips/{tripId}/photos/{itemId}（不塞主文件，避開 1MiB 上限）
 function photoRef(tripId,itemId){ return db.collection('trips').doc(tripId).collection('photos').doc(itemId); }
 async function getPhotoDoc(tripId,itemId){
-  if(!cloud) return null;
+  if(!cloud || isSample(tripId)) return null;
   try{ const s=await photoRef(tripId,itemId).get(); return s.exists?s.data():null; }catch(e){ return null; }
 }
 async function savePhotoDoc(tripId,itemId,dataUrl,placeId){
-  if(!cloud) return;
+  if(!cloud || isSample(tripId)) return;
   try{ await photoRef(tripId,itemId).set({dataUrl, placeId, fetchedAt:firebase.firestore.FieldValue.serverTimestamp()}); }catch(e){ console.warn('savePhoto',e); }
 }
 async function deletePhotoDoc(tripId,itemId){
   delete photoMemCache[itemId];
-  if(!cloud) return;
+  if(!cloud || isSample(tripId)) return;
   try{ await photoRef(tripId,itemId).delete(); }catch(e){}
 }
 // 回傳可顯示的大圖 dataUrl：優先讀 30 天內快照；過期/無則抓一次並落地
 async function ensurePhoto(tripId,item,force){
   if(!item||!item.placeId||!item.photoName) return null;
+  if(isSample(tripId)) return null;   // 範例行程不抓圖（省 Places Photo 配額）
   if(!force && photoMemCache[item.id]) return photoMemCache[item.id];   // 記憶體命中，連 Firestore 都免
   const existing=await getPhotoDoc(tripId,item.id);
   if(!force && existing && existing.dataUrl && existing.placeId===item.placeId && existing.fetchedAt){
@@ -1017,13 +1181,15 @@ function viewItem(id){
   const timeStr=[it.closedDay,it.hours].filter(Boolean).join('，');
   add('營業時間',timeStr);
   add('地圖',it.mapUrl,true);
-  const hasPlace=it.placeId&&it.photoName;
+  const hasPlace=it.placeId&&it.photoName&&!isSample(cur.tripId);
   const cachedPhoto = hasPlace ? photoMemCache[it.id] : null;
   const photoBlock = hasPlace
     ? (cachedPhoto
         ? `<div class="pv-photo"><img src="${cachedPhoto}" alt="${esc(it.title)}"></div>`
         : `<div class="pv-photo" id="pvPhoto"><div class="pv-load">載入代表圖…</div></div>`)
-    : `<div class="ph-note">🖼️ 此地點尚無代表圖。用編輯視窗的「🔍 搜尋 Google 地點」選定地點，即可自動顯示代表圖。</div>`;
+    : (isSample(cur.tripId)
+        ? `<div class="ph-note">🖼️ 範例行程不顯示代表圖。在你自己的行程用編輯視窗「🔍 搜尋 Google 地點」選定地點，這裡就會自動出現地點照片。</div>`
+        : `<div class="ph-note">🖼️ 此地點尚無代表圖。用編輯視窗的「🔍 搜尋 Google 地點」選定地點，即可自動顯示代表圖。</div>`);
   openModal(`
     <div class="modal-head"><div><h2>${esc(it.title)||'（未命名地點）'}</h2><div class="sub">${fmtDay(it.dayDate)} · ${it.segment}</div></div>
       <button class="close" onclick="closeModal()">×</button></div>
@@ -1283,6 +1449,7 @@ function confirmModal(title,msg,onYes,yesLabel){
 let toastT;
 function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),1800);}
 function saveNow(){
+  if(cur.tripId && isSample(cur.tripId)){ toast('🧪 範例行程不會儲存（重新整理即還原）'); return; }
   if(cloud){ if(cur.tripId) persistTrip(cur.tripId); toast('☁ 已儲存並同步到雲端'); }
   else { saveLocal(); toast('✓ 已儲存到本機'); }
 }
@@ -1578,9 +1745,137 @@ function exportPWAGuide(){
 function isStandaloneApp(){ try{ return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true; }catch(e){ return false; } }
 function isMobileUA(){ return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent||''); }
 // 手機用瀏覽器開（尚未裝成 App）→ 登入後引導安裝；已裝成 standalone 則不打擾
-function maybeMobileInstallPrompt(){
+async function maybeMobileInstallPrompt(){
   if(!isMobileUA() || isStandaloneApp()) return;
+  await prefsReady; if(!prefs.tourDone || tourActive) return;   // 首次導覽結尾會接安裝教學
   setTimeout(()=>{ if(!document.getElementById('overlay').classList.contains('show')) exportPWAGuide(); }, 1400);
+}
+
+/* ================= 使用導覽（聚光燈逐步） ================= */
+// 每步：sel=要框起來的元素（找不到就置中顯示）、prep=進入該步前把畫面切到對的狀態、optional=找不到元素就跳過
+let tourActive=false, tourIdx=0, tourSteps=[], tourWasHome=true;
+function firstVisible(sel){ return [...document.querySelectorAll(sel)].find(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.height>0;})||null; }
+function tourEnsureSample(tab,mode){
+  if(cur.tripId!==SAMPLE_ID) openTrip(SAMPLE_ID);
+  if(cur.tab!==tab) switchTab(tab);
+  if(cur.mode!==mode) setMode(mode);
+}
+function tourEnsureHome(){ closeModal(); if(cur.tripId) goHome(); }
+function buildTourSteps(){
+  const mob=window.innerWidth<=640;
+  return [
+    {title:'嗨，歡迎來到 Trip Genie 🧞', body:'花 1 分鐘帶你看一遍主要功能。<br>隨時可以按「略過」，之後點頂列 <b>❓</b> 能再看一次。', prep:tourEnsureHome},
+    {sel:'.trip-card.sample', optional:true, prep:tourEnsureHome, title:'範例行程',
+     body:'這張是<b>範例</b>，點進去可以隨意試玩，<b>修改不會存檔</b>。<br>不需要時按右上「隱藏範例」，首頁就只剩你自己的行程。'},
+    {sel:'.add-card', prep:tourEnsureHome, title:'建立你的行程',
+     body:'點這裡輸入<b>行程名稱與起訖日期</b>即可建立。<br>每張行程卡右上角有 ✎ 編輯、🗑 刪除。'},
+    {sel:'#themeSwitch', prep:tourEnsureHome, title:'三種配色',
+     body:'森林／海洋／城市，一鍵切換。每趟行程會記住自己的配色。'},
+    {sel:'.trip-head .tabs', prep:()=>tourEnsureSample('sched','view'), title:'三個分頁',
+     body:'進入行程後有 <b>📅 日程</b>、<b>✈ 航班</b>、<b>✓ Checklist</b>。接下來用範例行程示範。'},
+    {sel:'#modeSwitch', prep:()=>tourEnsureSample('sched','view'), title:'閱覽 ↔ 編輯',
+     body:'進行程預設 <b>👁️ 閱覽</b>，避免誤觸。<br>要新增、拖曳、修改時切到 <b>✏️ 編輯</b>。'},
+    {sel:'#schedPane .cell[data-day="2026-10-26"][data-seg="早上"] .item', prep:()=>tourEnsureSample('sched','view'), title:'看行程詳情',
+     body:'閱覽模式點卡片 → 跳出詳情：說明、營業時間、<b>Google 地圖連結</b>與地點代表圖。'},
+    {sel:'#schedPane .cell[data-day="2026-10-26"][data-seg="早上"]', prep:()=>tourEnsureSample('sched','edit'), title:'新增與拖曳',
+     body:'編輯模式點「＋ 新增」建立行程，可<b>搜尋 Google 地點</b>自動帶入名稱與地圖。'+(mob?'':'<br>按住卡片可<b>拖曳換時段或跨日</b>；拉卡片底邊往下可<b>跨多個時段</b>。')},
+    {sel:'#schedPane .item.tall', optional:true, prep:()=>tourEnsureSample('sched','edit'), title:'跨時段長卡',
+     body:'像這張從「午餐」拉到「下午茶」，適合逛 mall、主題樂園這種會待很久的行程。'},
+    {sel:'#schedPane .seg-label.alt', prep:()=>tourEnsureSample('sched','edit'), title:'備案欄',
+     body:'最下方的「備案」放雨天備案或候補景點，可以和正式行程<b>互相拖曳</b>升級／降級。'},
+    {sel:'#flightPane .fl-card', prep:()=>tourEnsureSample('flight','view'), title:'航班資訊',
+     body:'在這裡輸入航班，存檔後會<b>依起飛時間自動放進日程</b>對應的時段。'},
+    {sel:'#chkPane .chk-tools', prep:()=>tourEnsureSample('chk','edit'), title:'行前 Checklist',
+     body:'6 大類行李清單可勾選；編輯模式能新增項目、<b>複製其他行程的清單</b>、一鍵清除所有勾選。'},
+    {sel:'#exportDD', prep:()=>tourEnsureSample('sched','view'), title:'匯出行程表',
+     body:'匯出 <b>HTML</b>（可寄信、離線看，點日期切換每一天）或 <b>PDF</b>（列印／傳 LINE）。'},
+    {sel:'#saveBtn', prep:()=>tourEnsureSample('sched','view'), title:'自動同步＋分享',
+     body:'所有修改會<b>自動存到雲端</b>，手機和電腦即時同步。<br>你自己建立的行程這裡會多一個 <b>🔗 分享</b>，輸入家人朋友的 Gmail 就能一起編輯。'},
+    {sel:mob?null:'#tourBtn', prep:null, title:'完成 🎉',
+     body:'你現在在範例行程裡，可以自由試玩。<br>想再看一次導覽，'+(mob?'回首頁點標題下方的 <b>❓ 使用導覽</b>。':'點頂列這個 <b>❓</b>。'), last:true},
+  ];
+}
+function startTour(){
+  closeModal(); document.getElementById('exportDD')?.classList.remove('open');
+  tourWasHome=!cur.tripId;
+  tourSteps=buildTourSteps(); tourIdx=0; tourActive=true;
+  let el=document.getElementById('tour');
+  if(!el){
+    el=document.createElement('div'); el.id='tour';
+    el.innerHTML='<div class="tour-catch"></div><div class="tour-hole"></div><div class="tour-pop" role="dialog" aria-live="polite"></div>';
+    document.body.appendChild(el);
+    window.addEventListener('resize',()=>{ if(tourActive) placeTour(); });
+    document.addEventListener('keydown',e=>{ if(!tourActive)return;
+      if(e.key==='Escape') endTour(); else if(e.key==='ArrowRight') tourGo(1); else if(e.key==='ArrowLeft') tourGo(-1); });
+  }
+  el.hidden=false; showTourStep();
+}
+function tourGo(d){
+  let i=tourIdx+d;
+  while(i>=0 && i<tourSteps.length){
+    const st=tourSteps[i]; if(st.prep) st.prep();
+    if(st.optional && st.sel && !firstVisible(st.sel)){ i+=d; continue; }
+    break;
+  }
+  if(i>=tourSteps.length){ endTour(); return; }
+  if(i<0) i=0;
+  tourIdx=i; showTourStep();
+}
+function showTourStep(){
+  const st=tourSteps[tourIdx]; if(st.prep) st.prep();
+  if(st.optional && st.sel && !firstVisible(st.sel)){ tourGo(1); return; }
+  const n=tourSteps.length;
+  const pop=document.querySelector('#tour .tour-pop');
+  pop.innerHTML=`
+    <div class="tp-step">${tourIdx+1} / ${n}</div>
+    <div class="tp-title">${st.title}</div>
+    <div class="tp-body">${st.body}</div>
+    <div class="tp-foot">
+      ${st.last?'':'<button class="btn ghost sm" onclick="endTour(tourWasHome)">略過</button>'}
+      <div class="spacer"></div>
+      ${tourIdx>0?'<button class="btn sm" onclick="tourGo(-1)">上一步</button>':''}
+      ${st.last?'<button class="btn sm" onclick="endTour(true)">回首頁</button><button class="btn primary sm" onclick="endTour()">留在範例試玩</button>'
+               :`<button class="btn primary sm" onclick="tourGo(1)">${tourIdx===0?'開始':'下一步'}</button>`}
+    </div>`;
+  const t=st.sel?firstVisible(st.sel):null;
+  if(t){ try{ t.scrollIntoView({block:'center',inline:'center'}); }catch(e){}
+    // 日程橫捲時，卡片左側別被凍結的時間段欄蓋住
+    const sp=document.getElementById('schedPane');
+    if(sp.contains(t) && !t.classList.contains('seg-label')){ const lab=sp.querySelector('.seg-label'); const lr=lab?lab.getBoundingClientRect().right:0; const r=t.getBoundingClientRect(); if(r.left<lr+4) sp.scrollLeft+=r.left-(lr+6); }
+  }
+  placeTour(); requestAnimationFrame(placeTour); setTimeout(placeTour,320);   // 捲動／重繪後再對位一次
+}
+function placeTour(){
+  const st=tourSteps[tourIdx]; if(!st) return;
+  const hole=document.querySelector('#tour .tour-hole'), pop=document.querySelector('#tour .tour-pop');
+  const vw=window.innerWidth, vh=window.innerHeight, M=12;
+  const t=st.sel?firstVisible(st.sel):null;
+  const pw=Math.min(340, vw-2*M); pop.style.width=pw+'px';
+  if(!t){
+    hole.style.cssText=`left:${vw/2}px;top:${vh/2}px;width:0;height:0`;
+    pop.style.left=((vw-pw)/2)+'px'; pop.style.top=Math.max(M,(vh-pop.offsetHeight)/2)+'px'; return;
+  }
+  const r=t.getBoundingClientRect(), P=6;
+  const L=Math.max(4,r.left-P), T=Math.max(4,r.top-P), R=Math.min(vw-4,r.right+P), B=Math.min(vh-4,r.bottom+P);
+  hole.style.cssText=`left:${L}px;top:${T}px;width:${R-L}px;height:${B-T}px`;
+  const ph=pop.offsetHeight;
+  let top = (B+M+ph<=vh) ? B+M : (T-M-ph>=0 ? T-M-ph : vh-ph-M);   // 下方放得下→下方；否則上方；都不行→貼底
+  let left=Math.min(Math.max(M, (L+R)/2-pw/2), vw-pw-M);
+  pop.style.left=left+'px'; pop.style.top=Math.max(M,top)+'px';
+}
+function endTour(goHomeAfter){
+  tourActive=false; const el=document.getElementById('tour'); if(el) el.hidden=true;
+  if(cur.tripId && isSample(cur.tripId)){ if(cur.mode!=='view') setMode('view'); if(cur.tab!=='sched') switchTab('sched'); }
+  if(goHomeAfter) tourEnsureHome();
+  const first=!prefs.tourDone;
+  if(first) setPref('tourDone',true);
+  if(first && isMobileUA() && !isStandaloneApp()) setTimeout(exportPWAGuide,400);   // 手機首次導覽結束 → 接安裝成 App 教學
+}
+async function maybeAutoTour(){
+  await prefsReady;
+  if(prefs.tourDone || tourActive || cur.tripId) return;
+  if(!document.getElementById('authGate').hidden) return;
+  setTimeout(()=>{ if(!tourActive && !prefs.tourDone && !cur.tripId) startTour(); }, 600);
 }
 
 /* ================= 小工具 ================= */
@@ -1631,7 +1926,7 @@ async function onAuth(user){
   document.getElementById('uEmail').title=user.email;
   document.getElementById('adminBtn').hidden=!isAdmin;
   document.getElementById('userChip').hidden=false;
-  hideGate(); startCloud();
+  hideGate(); loadPrefs().then(()=>{ if(appStarted && !cur.tripId) renderHome(); }); startCloud();
   maybeMobileInstallPrompt();   // 手機（非 standalone）登入後引導安裝成 App
   setTimeout(()=>{ if(!appStarted) bootUI(); }, 6000);   // 保險：資料若卡住也先顯示首頁
 }
@@ -1659,11 +1954,12 @@ function mergeTrips(ownOnly){
     else { items[id]=d.items||[]; chk[id]=d.checklist||blankChecklist(); }
   });
   trips.sort((a,b)=>((a.order||0)-(b.order||0))||((a.name||'')>(b.name||'')?1:-1));
-  applyingRemote=true; state.trips=trips; state.items=items; state.checklist=chk; applyingRemote=false;
+  const smpItems=state.items[SAMPLE_ID], smpChk=state.checklist[SAMPLE_ID];
+  applyingRemote=true; state.trips=trips; state.items=items; state.checklist=chk; injectSample(smpItems, smpChk); applyingRemote=false;
   if(!appStarted) bootUI();
   else if(!ownOnly) rerenderCurrent();   // 只有別人改動才重繪，自己寫的不重繪（避免跳動）
 }
-function bootUI(){ appStarted=true; normalizeState(); applyTheme(state.theme||'forest', false); if(cur.tripId) rerenderCurrent(); else renderHome(); }
+function bootUI(){ appStarted=true; normalizeState(); applyTheme(state.theme||'forest', false); if(cur.tripId) rerenderCurrent(); else renderHome(); maybeAutoTour(); }
 function rerenderCurrent(){
   applyTheme(state.theme||'forest', false);
   if(cur.tripId){
@@ -1750,7 +2046,8 @@ function initApp(){
       auth.onAuthStateChanged(onAuth); return;
     }catch(e){ console.warn('Firebase init 失敗，改用本機模式',e); }
   }
-  cloud=false; state=loadLocal(); normalizeState(); applyTheme(state.theme||'forest', false); renderHome();
+  cloud=false; state=loadLocal(); injectSample(); normalizeState(); applyTheme(state.theme||'forest', false); renderHome();
+  loadPrefs(); maybeAutoTour();
 }
 initApp();
 
